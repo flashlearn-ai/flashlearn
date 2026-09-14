@@ -89,28 +89,30 @@ Once the team agrees on these contracts, contributors should build against packa
 
 Types are physically declared in `contracts/index.d.ts` when they cross package boundaries, but every type has one owning workstream. Its package area below owns the type's meaning and evolution; consumers use the shared declaration without taking ownership. Only the CLI connects concrete package implementations.
 
+Map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint.
+
 ```mermaid
 flowchart TD
   subgraph CLIRegion["🔵 CLI / orchestration · David · packages/cli"]
-    CLI["<b>Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>Type:</b> StartOptions<br/>host? · port?<br/><br/><b>Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
+    CLI["<b>⚙️ Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
   end
 
   subgraph PackagePipeline["Contract handoffs"]
     direction LR
     subgraph ExtractionRegion["🟢 Extraction / AI generation · Manasa · packages/extraction"]
-      Extraction["<b>Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>Type:</b> GeneratedCard<br/>question · answer<br/>source.path · source.sha"]
+      Extraction["<b>⚙️ Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>🧩 Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>🧩 Type:</b> GeneratedCard<br/>question · answer<br/>source.path · source.sha"]
     end
 
     subgraph StorageRegion["🟠 Storage / repositories · Sagar · packages/storage"]
-      Storage["<b>Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>Type:</b> ReviewRepository<br/>get · save"]
+      Storage["<b>⚙️ Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>🧩 Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>🧩 Type:</b> ReviewRepository<br/>get · save"]
     end
 
     subgraph LearningRegion["🟣 Learning engine · Jenny · packages/learning"]
-      Learning["<b>Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
+      Learning["<b>⚙️ Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>🧩 Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>🧩 Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
     end
 
     subgraph FrontendRegion["🔴 Frontend / fake Teams · Sara · packages/frontend"]
-      Frontend["<b>Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>Type:</b> CardPreview<br/>id · question<br/>source.path · source.sha<br/><br/><b>Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>HTTP:</b><br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
+      Frontend["<b>⚙️ Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>🧩 Type:</b> CardPreview<br/>id · question<br/>source.path · source.sha<br/><br/><b>🧩 Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>🌐 HTTP:</b><br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
     end
   end
 
