@@ -10,24 +10,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  package-scope:
+    name: Only Edit One Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check pull request package scope
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-package-scope.mjs "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+      - name: Check pushed package scope
+        if: github.event_name == 'push'
+        run: node scripts/check-package-scope.mjs "${{ github.event.before }}" "${{ github.sha }}"
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - name: Enforce pull request package scope
-        if: github.event_name == 'pull_request'
-        run: node scripts/check-package-scope.mjs "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
-      - name: Enforce pushed package scope
-        if: github.event_name == 'push'
-        run: node scripts/check-package-scope.mjs "${{ github.event.before }}" "${{ github.sha }}"
       - run: npm ci
       - run: npm run check
 
