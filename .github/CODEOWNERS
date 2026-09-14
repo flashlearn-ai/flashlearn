@@ -1,0 +1,12 @@
+# Replace these placeholder teams with the five GitHub teams when created.
+/packages/cli/ @flashlearn-ai/cli
+/packages/extraction/ @flashlearn-ai/extraction
+/packages/storage/ @flashlearn-ai/storage
+/packages/learning/ @flashlearn-ai/learning
+/packages/frontend/ @flashlearn-ai/frontend
+
+# Shared contracts and workspace configuration require all workstream owners.
+/contracts/ @flashlearn-ai/cli @flashlearn-ai/extraction @flashlearn-ai/storage @flashlearn-ai/learning @flashlearn-ai/frontend
+/package.json @flashlearn-ai/cli @flashlearn-ai/extraction @flashlearn-ai/storage @flashlearn-ai/learning @flashlearn-ai/frontend
+/tsconfig.base.json @flashlearn-ai/cli @flashlearn-ai/extraction @flashlearn-ai/storage @flashlearn-ai/learning @flashlearn-ai/frontend
+/scripts/ @flashlearn-ai/cli @flashlearn-ai/extraction @flashlearn-ai/storage @flashlearn-ai/learning @flashlearn-ai/frontend
