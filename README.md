@@ -6,7 +6,9 @@
 
 <p align="center"><strong>Agentic AI for compounding learning velocity.</strong></p>
 
-<p align="center">Turn a Git repository into source-attributed study cards and a local spaced-repetition experience, powered by five independently owned packages connected through stable contracts.</p>
+<p align="center">Onboard effectively to unfamiliar code repositories by turning their source into attributed study cards and a local spaced-repetition experience.</p>
+
+<p align="center"><strong>Local-first and secure by design:</strong> questions and generated learning content stay within your existing repository access controls.</p>
 
 ## Feature Map
 
