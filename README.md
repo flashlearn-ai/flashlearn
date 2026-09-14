@@ -1,6 +1,24 @@
 # FlashLearn
 
-FlashLearn is organized as exactly five independently owned npm workspace packages. Stable types in `contracts/` are the only shared source surface. The CLI is the composition root; all other packages are isolated and communicate through injected contract interfaces.
+FlashLearn turns a Git repository into source-attributed study cards and serves them through a local spaced-repetition experience. It is organized as five independently owned npm workspace packages connected by stable contracts, allowing each workstream to develop and test in parallel.
+
+## Feature Map
+
+`Done` means a tested baseline is implemented on `main`; it does not imply the feature is production-complete. `In Progress` identifies the next product-level capability beyond that baseline.
+
+| Feature | Status | Current capability | Next milestone | Owner |
+| --- | --- | --- | --- | --- |
+| Shared contracts | **Done** | Card, generated-card, review-state, repository, and HTTP contracts are defined. | Evolve only through coordinated contract review. | David / all owners |
+| Package isolation | **Done** | Five workspaces, import-boundary checks, one-package CI enforcement, and CODEOWNERS are in place. | Configure required checks and real GitHub teams in repository settings. | David |
+| CLI orchestration | **Done** | `init`, `generate`, and `start` support directory arguments; start supports host and port options. | Package and distribute a directly installable `flashlearn` executable. | David |
+| CLI integration harness | **Done** | In-memory repositories, recording fakes, package contract tests, and a full pipeline test are available. | Expand tests as package implementations replace their starter surfaces. | David |
+| Local JSON storage | **Done** | Cards and review state persist under `.flashlearn/` with idempotent initialization and atomic writes. | Add schema validation, migration handling, and broader failure coverage. | Sagar |
+| Repository scanning | **Done** | JavaScript, TypeScript, JSX, TSX, and Markdown files are scanned with path and Git SHA attribution. | Add configurable include/exclude rules and richer repository handling. | Manasa |
+| Question generation | **In Progress** | Adjacent `Q:` and `A:` annotations produce attributed cards. | Implement AI-backed knowledge, question, and answer generation. | Manasa |
+| Review scheduling | **Done** | Baseline easy, hard, correct, and incorrect scheduling updates review state and due dates. | Validate and tune the spaced-repetition algorithm with broader tests. | Jenny |
+| HTTP API | **Done** | Card list, next card, answer reveal, and review submission endpoints are implemented. | Harden validation and error behavior as integrations mature. | Sara |
+| Learning UI | **In Progress** | A local page displays the next question, source attribution, and revealed answer. | Build the fake Teams experience and add review-result controls. | Sara |
+| Local quality gates | **Done** | CI validates scope, types, tests, and builds; Husky provides pre-commit and pre-push feedback. | Keep checks fast and aligned with the documented workflow. | David |
 
 ## Workstreams
 

@@ -194,6 +194,13 @@ Treat this file as a living contract. Before completing any development task, co
 - npm scripts, runtime requirements, hooks, test commands, or CI check names;
 - important invariants that future contributors must preserve.
 
+The root README feature map is the authoritative high-level status view. Update its current capability, next milestone, and status whenever a change adds, removes, or materially alters user-visible behavior. Use only these statuses:
+
+- `Done`: a tested baseline is implemented on `main`;
+- `In Progress`: the baseline is partial or the listed product capability is still being built.
+
+Do not mark planned work as done based on scaffolds, interfaces, mocks, open pull requests, or unmerged branches. Derive status from code and tests on the branch that will become `main`. Keep feature-map rows brief; implementation detail belongs in package READMEs.
+
 Do not rewrite documentation when behavior is unchanged. Keep updates factual and derived from committed code rather than plans. After editing documentation, search for obsolete names and examples, run `git diff --check`, and verify every documented command affected by the change.
 
 When this guide becomes too broad for one package, add a nested `packages/<name>/AGENTS.md`. Nested guides may add package-specific instructions but must not weaken root ownership, contract, or verification rules.
