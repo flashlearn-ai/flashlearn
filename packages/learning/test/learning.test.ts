@@ -80,6 +80,14 @@ test("uses short fixed intervals for a card's first successful review", () => {
   assert.equal(scheduleReview(initial, "easy", now).intervalDays, 4);
 });
 
+test("still uses first-success intervals after an incorrect attempt", () => {
+  const failed = scheduleReview(service.createReviewState("1"), "incorrect", now);
+  const nextDay = new Date("2026-01-02T00:00:00.000Z");
+
+  assert.equal(scheduleReview(failed, "correct", nextDay).intervalDays, 1);
+  assert.equal(scheduleReview(failed, "easy", nextDay).intervalDays, 4);
+});
+
 test("does not mutate input state and never lowers ease below the minimum", () => {
   const state = reviewState({ easeFactor: 1.3 });
   const snapshot = structuredClone(state);
@@ -97,6 +105,13 @@ test("selects unreviewed cards in creation order", () => {
   assert.equal(selectNextCard([newer, older], [], now)?.id, "older");
 });
 
+test("orders creation timestamps chronologically across UTC offsets", () => {
+  const earlier = card("earlier", "2026-01-01T00:30:00+01:00");
+  const later = card("later", "2025-12-31T23:45:00.000Z");
+
+  assert.equal(selectNextCard([later, earlier], [], now)?.id, "earlier");
+});
+
 test("selects the earliest reviewed card that is due", () => {
   const cards = [
     card("later", "2025-01-01T00:00:00.000Z"),
@@ -112,6 +127,45 @@ test("selects the earliest reviewed card that is due", () => {
   assert.equal(selectNextCard(cards, states, now)?.id, "earlier");
 });
 
+test("prioritizes overdue reviews before introducing new cards", () => {
+  const overdue = card("overdue", "2025-01-02T00:00:00.000Z");
+  const unreviewed = card("new", "2025-01-01T00:00:00.000Z");
+  const states = [reviewState({
+    cardId: "overdue",
+    nextReview: "2025-12-01T00:00:00.000Z",
+  })];
+
+  assert.equal(selectNextCard([unreviewed, overdue], states, now)?.id, "overdue");
+});
+
+test("a failed card is immediately eligible when no earlier card is due", () => {
+  const failed = scheduleReview(service.createReviewState("1"), "incorrect", now);
+
+  assert.equal(selectNextCard(
+    [card("1", "2025-01-01T00:00:00.000Z")],
+    [failed],
+    now,
+  )?.id, "1");
+});
+
+test("treats a card due exactly now as eligible", () => {
+  const due = card("due", "2025-01-01T00:00:00.000Z");
+  const states = [reviewState({ cardId: "due", nextReview: now.toISOString() })];
+
+  assert.equal(selectNextCard([due], states, now)?.id, "due");
+});
+
+test("breaks equal due times by card creation order", () => {
+  const newer = card("newer", "2025-01-02T00:00:00.000Z");
+  const older = card("older", "2025-01-01T00:00:00.000Z");
+  const states = [
+    reviewState({ cardId: "newer", nextReview: "2025-12-31T00:00:00.000Z" }),
+    reviewState({ cardId: "older", nextReview: "2025-12-31T00:00:00.000Z" }),
+  ];
+
+  assert.equal(selectNextCard([newer, older], states, now)?.id, "older");
+});
+
 test("returns null when every card is scheduled for the future", () => {
   const cards = [card("1", "2025-01-01T00:00:00.000Z")];
   const states = [reviewState({
@@ -120,6 +174,17 @@ test("returns null when every card is scheduled for the future", () => {
   })];
 
   assert.equal(selectNextCard(cards, states, now), null);
+});
+
+test("returns null for an empty deck", () => {
+  assert.equal(selectNextCard([], [], now), null);
+});
+
+test("schedules across a leap-day boundary in UTC", () => {
+  const leapDay = new Date("2028-02-28T12:30:00.000Z");
+  const next = scheduleReview(service.createReviewState("1"), "correct", leapDay);
+
+  assert.equal(next.nextReview, "2028-02-29T12:30:00.000Z");
 });
 
 test("production exports use the same implementation as LearningService", () => {

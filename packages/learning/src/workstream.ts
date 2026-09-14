@@ -3,6 +3,10 @@ import type { Card, ReviewResult, ReviewState } from "../../../contracts/index.j
 const MINIMUM_EASE_FACTOR = 1.3;
 const INITIAL_EASE_FACTOR = 2.5;
 
+function compareTimestamps(left: string, right: string): number {
+  return new Date(left).getTime() - new Date(right).getTime();
+}
+
 /** Scheduling and card-selection operations owned by the learning engine. */
 export interface LearningWorkstream {
   createReviewState(cardId: string): ReviewState;
@@ -27,8 +31,8 @@ export class LearningService implements LearningWorkstream {
     const multipliers: Record<ReviewResult, number> = {
       incorrect: 0,
       hard: 1.2,
-      correct: state.reviewCount === 0 ? 1 : state.easeFactor,
-      easy: state.reviewCount === 0 ? 4 : state.easeFactor + 0.5,
+      correct: state.correctCount === 0 ? 1 : state.easeFactor,
+      easy: state.correctCount === 0 ? 4 : state.easeFactor + 0.5,
     };
     const intervalDays = successful
       ? Math.max(1, Math.round(Math.max(1, state.intervalDays) * multipliers[result]))
@@ -63,9 +67,15 @@ export class LearningService implements LearningWorkstream {
         return !nextReview || new Date(nextReview) <= now;
       })
       .sort((left, right) => {
-        const leftDue = byCard.get(left.id)?.nextReview ?? "";
-        const rightDue = byCard.get(right.id)?.nextReview ?? "";
-        return leftDue.localeCompare(rightDue) || left.createdAt.localeCompare(right.createdAt);
+        const leftDue = byCard.get(left.id)?.nextReview;
+        const rightDue = byCard.get(right.id)?.nextReview;
+        if (leftDue && rightDue) {
+          return compareTimestamps(leftDue, rightDue)
+            || compareTimestamps(left.createdAt, right.createdAt);
+        }
+        if (leftDue) return -1;
+        if (rightDue) return 1;
+        return compareTimestamps(left.createdAt, right.createdAt);
       })[0] ?? null;
   }
 }
