@@ -86,27 +86,27 @@ Types are physically declared in `contracts/index.d.ts` when they cross package 
 
 ```mermaid
 flowchart TD
-  subgraph ExtractionRegion["Extraction / AI generation · Manasa · packages/extraction"]
+  subgraph ExtractionRegion["🟢 Extraction / AI generation · Manasa · packages/extraction"]
     direction TB
     Extraction["<b>Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>Type:</b> GeneratedCard<br/>question · answer · source.path · source.sha"]
   end
 
-  subgraph CLIRegion["CLI / orchestration · David · packages/cli"]
+  subgraph CLIRegion["🔵 CLI / orchestration · David · packages/cli"]
     direction TB
     CLI["<b>Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>Type:</b> StartOptions<br/>host? · port?<br/><br/><b>Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
   end
 
-  subgraph StorageRegion["Storage / repositories · Sagar · packages/storage"]
+  subgraph StorageRegion["🟠 Storage / repositories · Sagar · packages/storage"]
     direction TB
     Storage["<b>Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>Type:</b> ReviewRepository<br/>get · save"]
   end
 
-  subgraph LearningRegion["Learning engine · Jenny · packages/learning"]
+  subgraph LearningRegion["🟣 Learning engine · Jenny · packages/learning"]
     direction TB
     Learning["<b>Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
   end
 
-  subgraph FrontendRegion["Frontend / fake Teams · Sara · packages/frontend"]
+  subgraph FrontendRegion["🔴 Frontend / fake Teams · Sara · packages/frontend"]
     direction TB
     Frontend["<b>Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>Type:</b> CardPreview<br/>id · question · source.path · source.sha<br/><br/><b>Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>HTTP:</b><br/>GET /api/cards · GET /api/cards/next<br/>GET /api/cards/:id · POST /api/review"]
   end
@@ -126,11 +126,11 @@ flowchart TD
   class Storage storage;
   class Learning learning;
   class Frontend frontend;
-  style ExtractionRegion fill:#f0fdf4,stroke:#16a34a,stroke-width:3px
-  style CLIRegion fill:#eff6ff,stroke:#2563eb,stroke-width:3px
-  style StorageRegion fill:#fffbeb,stroke:#d97706,stroke-width:3px
-  style LearningRegion fill:#faf5ff,stroke:#9333ea,stroke-width:3px
-  style FrontendRegion fill:#fff1f2,stroke:#e11d48,stroke-width:3px
+  style ExtractionRegion fill:#bbf7d0,stroke:#15803d,stroke-width:4px,color:#14532d
+  style CLIRegion fill:#bfdbfe,stroke:#1d4ed8,stroke-width:4px,color:#1e3a8a
+  style StorageRegion fill:#fde68a,stroke:#b45309,stroke-width:4px,color:#78350f
+  style LearningRegion fill:#e9d5ff,stroke:#7e22ce,stroke-width:4px,color:#581c87
+  style FrontendRegion fill:#fecdd3,stroke:#be123c,stroke-width:4px,color:#881337
 ```
 
 Contract ownership is:
