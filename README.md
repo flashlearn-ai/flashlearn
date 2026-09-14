@@ -82,67 +82,86 @@ Once the team agrees on these contracts, contributors should build against packa
 
 ### Contract Map
 
-The arrows show which package produces, consumes, implements, or exposes each locked contract. The CLI is the only package that connects concrete implementations; the other packages depend on the shared contract rather than one another.
+Types are physically declared in `contracts/index.d.ts` when they cross package boundaries, but every type has one owning workstream. Its package area below owns the type's meaning and evolution; consumers use the shared declaration without taking ownership. Only the CLI connects concrete package implementations.
 
 ```mermaid
-flowchart LR
-  subgraph Packages["Five independently owned packages"]
-    CLI["CLI<br/>David<br/><code>packages/cli</code>"]
-    Extraction["Extraction<br/>Manasa<br/><code>packages/extraction</code>"]
-    Storage["Storage<br/>Sagar<br/><code>packages/storage</code>"]
-    Learning["Learning Engine<br/>Jenny<br/><code>packages/learning</code>"]
-    Frontend["UI / Fake Teams<br/>Sara<br/><code>packages/frontend</code>"]
-  end
-
-  subgraph Models["Locked data models: contracts/index.d.ts"]
-    GeneratedCard["GeneratedCard<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string"]
+flowchart TB
+  subgraph CLI["CLI / orchestration - David - packages/cli"]
+    CliMethods["Methods<br/>initialize(root): Promise&lt;void&gt;<br/>generate(directory): Promise&lt;Card[]&gt;<br/>start(root, options?): Promise&lt;void&gt;"]
+    CliTypes["Owned types<br/>StartOptions<br/>host?: string<br/>port?: number"]
     Card["Card<br/>id: string<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string<br/>tags?: string[]<br/>createdAt: string<br/>updatedAt: string"]
-    ReviewState["ReviewState<br/>cardId: string<br/>easeFactor: number<br/>intervalDays: number<br/>lastReviewed?: string<br/>nextReview?: string<br/>reviewCount: number<br/>correctCount: number"]
-    ReviewResult["ReviewResult<br/>easy | hard | correct | incorrect"]
-    CardPreview["CardPreview<br/>id: string<br/>question: string<br/>source.path: string<br/>source.sha: string"]
-    ReviewRequest["SubmitReviewRequest<br/>cardId: string<br/>result: ReviewResult"]
   end
 
-  subgraph Ports["Locked repository ports"]
+  subgraph Extraction["Extraction / AI generation - Manasa - packages/extraction"]
+    ExtractionMethods["Methods<br/>scanRepository(root): Promise&lt;SourceDocument[]&gt;<br/>generateFromDocument(document): Promise&lt;GeneratedCard[]&gt;<br/>generateFromRepository(root): Promise&lt;GeneratedCard[]&gt;"]
+    SourceDocument["SourceDocument<br/>path: string<br/>content: string<br/>sha: string"]
+    GeneratedCard["GeneratedCard<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string"]
+  end
+
+  subgraph Storage["Storage / repositories - Sagar - packages/storage"]
+    StorageMethods["Methods<br/>initialize(root): Promise&lt;void&gt;<br/>createCardRepository(root)<br/>createReviewRepository(root)"]
     CardRepo["CardRepository<br/>save(Card): Promise&lt;void&gt;<br/>get(id): Promise&lt;Card | null&gt;<br/>list(): Promise&lt;Card[]&gt;<br/>delete(id): Promise&lt;void&gt;"]
     ReviewRepo["ReviewRepository<br/>get(cardId): Promise&lt;ReviewState&gt;<br/>save(ReviewState): Promise&lt;void&gt;"]
   end
 
-  subgraph HTTP["Locked HTTP boundary: contracts/http.md"]
-    Endpoints["GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
+  subgraph Learning["Learning engine - Jenny - packages/learning"]
+    LearningMethods["Methods<br/>createReviewState(cardId): ReviewState<br/>scheduleReview(state, result, now?): ReviewState<br/>selectNextCard(cards, states, now?): Card | null"]
+    ReviewState["ReviewState<br/>cardId: string<br/>easeFactor: number<br/>intervalDays: number<br/>lastReviewed?: string<br/>nextReview?: string<br/>reviewCount: number<br/>correctCount: number"]
+    ReviewResult["ReviewResult<br/>easy | hard | correct | incorrect"]
   end
 
-  Extraction -->|produces| GeneratedCard
-  GeneratedCard -->|CLI assigns ID and timestamps| Card
-  CLI -->|orchestrates| Extraction
-  CLI -->|composes| Storage
-  CLI -->|composes| Learning
-  CLI -->|starts| Frontend
+  subgraph Frontend["Frontend / fake Teams - Sara - packages/frontend"]
+    FrontendMethods["Methods<br/>createServer(services): Server<br/>renderPage(): string<br/>listCards()<br/>nextCard()<br/>getCard(id)<br/>submitReview(cardId, result)"]
+    CardPreview["CardPreview<br/>id: string<br/>question: string<br/>source.path: string<br/>source.sha: string"]
+    ReviewRequest["SubmitReviewRequest<br/>cardId: string<br/>result: ReviewResult"]
+    Endpoints["HTTP endpoints<br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
+  end
 
-  Storage -->|implements| CardRepo
-  Storage -->|implements| ReviewRepo
-  CardRepo -->|persists and returns| Card
-  ReviewRepo -->|persists and returns| ReviewState
+  CliMethods -->|invokes| ExtractionMethods
+  ExtractionMethods -->|produces| GeneratedCard
+  GeneratedCard -->|CLI adds ID and timestamps| Card
+  CliMethods -->|uses| CardRepo
+  CliMethods -->|uses| ReviewRepo
+  CliMethods -->|initializes| StorageMethods
+  StorageMethods -->|creates| CardRepo
+  StorageMethods -->|creates| ReviewRepo
+  CardRepo <-->|persists| Card
+  ReviewRepo <-->|persists| ReviewState
+  CliMethods -->|invokes| LearningMethods
+  Card -->|scheduled by| LearningMethods
+  ReviewResult -->|scores| LearningMethods
+  LearningMethods -->|updates| ReviewState
+  CliMethods -->|starts| FrontendMethods
+  FrontendMethods -->|exposes| Endpoints
+  Endpoints -->|list and reveal| Card
+  Endpoints -->|next card| CardPreview
+  ReviewRequest -->|review input| Endpoints
+  Endpoints -->|review output| ReviewState
 
-  Learning -->|consumes| Card
-  Learning -->|consumes and updates| ReviewState
-  ReviewResult -->|scores review| Learning
-
-  Frontend -->|exposes| Endpoints
-  Endpoints -->|list/reveal responses| Card
-  Endpoints -->|next response| CardPreview
-  ReviewRequest -->|POST body| Endpoints
-  Endpoints -->|review response| ReviewState
-
-  classDef package fill:#17251d,color:#fff,stroke:#17251d;
-  classDef model fill:#f4f1e8,color:#17251d,stroke:#8b795e;
-  classDef port fill:#e6edf5,color:#17251d,stroke:#53708f;
-  classDef http fill:#f3e1d1,color:#17251d,stroke:#a55d38;
-  class CLI,Extraction,Storage,Learning,Frontend package;
-  class GeneratedCard,Card,ReviewState,ReviewResult,CardPreview,ReviewRequest model;
-  class CardRepo,ReviewRepo port;
-  class Endpoints http;
+  classDef cli fill:#dbeafe,color:#17251d,stroke:#2563eb,stroke-width:2px;
+  classDef extraction fill:#dcfce7,color:#17251d,stroke:#16a34a,stroke-width:2px;
+  classDef storage fill:#fef3c7,color:#17251d,stroke:#d97706,stroke-width:2px;
+  classDef learning fill:#f3e8ff,color:#17251d,stroke:#9333ea,stroke-width:2px;
+  classDef frontend fill:#ffe4e6,color:#17251d,stroke:#e11d48,stroke-width:2px;
+  class CliMethods,CliTypes,Card cli;
+  class ExtractionMethods,SourceDocument,GeneratedCard extraction;
+  class StorageMethods,CardRepo,ReviewRepo storage;
+  class LearningMethods,ReviewState,ReviewResult learning;
+  class FrontendMethods,CardPreview,ReviewRequest,Endpoints frontend;
+  style CLI fill:#eff6ff,stroke:#2563eb,stroke-width:3px
+  style Extraction fill:#f0fdf4,stroke:#16a34a,stroke-width:3px
+  style Storage fill:#fffbeb,stroke:#d97706,stroke-width:3px
+  style Learning fill:#faf5ff,stroke:#9333ea,stroke-width:3px
+  style Frontend fill:#fff1f2,stroke:#e11d48,stroke-width:3px
 ```
+
+Contract ownership is:
+
+1. **CLI:** `Card`, `StartOptions`, and orchestration methods
+2. **Extraction:** `SourceDocument`, `GeneratedCard`, and extraction methods
+3. **Storage:** `CardRepository`, `ReviewRepository`, and storage lifecycle methods
+4. **Learning:** `ReviewState`, `ReviewResult`, and scheduling methods
+5. **Frontend:** `CardPreview`, `SubmitReviewRequest`, HTTP endpoints, and frontend service methods
 
 ## Locked Contract
 

@@ -89,6 +89,8 @@ The shared models are:
 
 Every card source must contain both repository-relative `path` and Git `sha`. Keep learning metadata separate from card generation.
 
+Every shared contract type must have exactly one semantic owner among the five packages, even though cross-package declarations remain physically in `contracts/`. Current ownership is: CLI owns `Card`; extraction owns `GeneratedCard`; storage owns repository interfaces; learning owns `ReviewState` and `ReviewResult`; frontend owns HTTP request and response shapes. New contract types must be assigned to one package and shown inside that package's colored area in the README contract map.
+
 The locked endpoints are:
 
 ```http
