@@ -2,6 +2,9 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Card, CardRepository, ReviewRepository, ReviewState } from "../../../contracts/index.js";
 
+export { StarterCardRepository, StarterReviewRepository, StorageService } from "./workstream.js";
+export type { StorageWorkstream } from "./workstream.js";
+
 export const DEFAULT_REVIEW_STATE = (cardId: string): ReviewState => ({
   cardId,
   easeFactor: 2.5,

@@ -1,12 +1,9 @@
 import { createServer, type Server } from "node:http";
-import type { Card, CardPreview, ReviewResult, ReviewState } from "../../../contracts/index.js";
+import type { CardPreview, ReviewResult } from "../../../contracts/index.js";
+import type { FrontendServices } from "./workstream.js";
 
-export interface FrontendServices {
-  listCards(): Promise<Card[]>;
-  nextCard(): Promise<Card | null>;
-  getCard(id: string): Promise<Card | null>;
-  submitReview(cardId: string, result: ReviewResult): Promise<ReviewState>;
-}
+export { FrontendService, MockFrontendServices } from "./workstream.js";
+export type { FrontendServices, FrontendWorkstream } from "./workstream.js";
 
 const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>FlashLearn</title><style>body{font:18px system-ui;max-width:42rem;margin:12vh auto;padding:1rem;background:#f4f1e8;color:#17251d}button{font:inherit;padding:.6rem 1rem}small{color:#59665e}</style></head><body><main><small id="source"></small><h1 id="question">Loading...</h1><p id="answer" hidden></p><button id="reveal">Reveal answer</button></main><script>let card;async function next(){card=await fetch('/api/cards/next').then(r=>r.json());question.textContent=card.question||card.error;source.textContent=card.source?card.source.path+' @ '+card.source.sha.slice(0,7):''}reveal.onclick=async()=>{card=await fetch('/api/cards/'+card.id).then(r=>r.json());answer.textContent=card.answer;answer.hidden=false;reveal.hidden=true};next()</script></body></html>`;
 

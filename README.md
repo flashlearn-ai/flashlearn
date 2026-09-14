@@ -49,6 +49,70 @@ POST /api/review
 
 Once the team agrees on these contracts, contributors should build against package-local mocks and tests. The implementations can then merge through the CLI composition layer with minimal coordination overhead.
 
+### Contract Map
+
+The arrows show which package produces, consumes, implements, or exposes each locked contract. The CLI is the only package that connects concrete implementations; the other packages depend on the shared contract rather than one another.
+
+```mermaid
+flowchart LR
+  subgraph Packages["Five independently owned packages"]
+    CLI["CLI<br/>David<br/><code>packages/cli</code>"]
+    Extraction["Extraction<br/>Manasa<br/><code>packages/extraction</code>"]
+    Storage["Storage<br/>Sagar<br/><code>packages/storage</code>"]
+    Learning["Learning Engine<br/>Jenny<br/><code>packages/learning</code>"]
+    Frontend["UI / Fake Teams<br/>Sara<br/><code>packages/frontend</code>"]
+  end
+
+  subgraph Models["Locked data models: contracts/index.d.ts"]
+    GeneratedCard["GeneratedCard<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string"]
+    Card["Card<br/>id: string<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string<br/>tags?: string[]<br/>createdAt: string<br/>updatedAt: string"]
+    ReviewState["ReviewState<br/>cardId: string<br/>easeFactor: number<br/>intervalDays: number<br/>lastReviewed?: string<br/>nextReview?: string<br/>reviewCount: number<br/>correctCount: number"]
+    ReviewResult["ReviewResult<br/>easy | hard | correct | incorrect"]
+    CardPreview["CardPreview<br/>id: string<br/>question: string<br/>source.path: string<br/>source.sha: string"]
+    ReviewRequest["SubmitReviewRequest<br/>cardId: string<br/>result: ReviewResult"]
+  end
+
+  subgraph Ports["Locked repository ports"]
+    CardRepo["CardRepository<br/>save(Card): Promise&lt;void&gt;<br/>get(id): Promise&lt;Card | null&gt;<br/>list(): Promise&lt;Card[]&gt;<br/>delete(id): Promise&lt;void&gt;"]
+    ReviewRepo["ReviewRepository<br/>get(cardId): Promise&lt;ReviewState&gt;<br/>save(ReviewState): Promise&lt;void&gt;"]
+  end
+
+  subgraph HTTP["Locked HTTP boundary: contracts/http.md"]
+    Endpoints["GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
+  end
+
+  Extraction -->|produces| GeneratedCard
+  GeneratedCard -->|CLI assigns ID and timestamps| Card
+  CLI -->|orchestrates| Extraction
+  CLI -->|composes| Storage
+  CLI -->|composes| Learning
+  CLI -->|starts| Frontend
+
+  Storage -->|implements| CardRepo
+  Storage -->|implements| ReviewRepo
+  CardRepo -->|persists and returns| Card
+  ReviewRepo -->|persists and returns| ReviewState
+
+  Learning -->|consumes| Card
+  Learning -->|consumes and updates| ReviewState
+  ReviewResult -->|scores review| Learning
+
+  Frontend -->|exposes| Endpoints
+  Endpoints -->|list/reveal responses| Card
+  Endpoints -->|next response| CardPreview
+  ReviewRequest -->|POST body| Endpoints
+  Endpoints -->|review response| ReviewState
+
+  classDef package fill:#17251d,color:#fff,stroke:#17251d;
+  classDef model fill:#f4f1e8,color:#17251d,stroke:#8b795e;
+  classDef port fill:#e6edf5,color:#17251d,stroke:#53708f;
+  classDef http fill:#f3e1d1,color:#17251d,stroke:#a55d38;
+  class CLI,Extraction,Storage,Learning,Frontend package;
+  class GeneratedCard,Card,ReviewState,ReviewResult,CardPreview,ReviewRequest model;
+  class CardRepo,ReviewRepo port;
+  class Endpoints http;
+```
+
 ## Locked Contract
 
 `contracts/index.d.ts` locks `Card`, `GeneratedCard`, `ReviewState`, repository ports, and review results. `contracts/http.md` locks endpoint names and payloads. Storage is JSON with these files:

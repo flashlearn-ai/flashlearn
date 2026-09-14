@@ -1,0 +1,172 @@
+# FlashLearn Agent Guide
+
+This file is the primary development context for coding agents working in this repository. Read it before editing code. See `README.md` for product and contributor context.
+
+## Product Goal
+
+FlashLearn turns a Git repository into attributed question-and-answer cards and presents them through a local spaced-repetition experience.
+
+```text
+Directory/repository
+  -> question extraction
+  -> card storage
+  -> learning engine
+  -> local UI
+```
+
+The architecture is optimized for five contributors working independently. Stable contracts are more important than sharing implementation code.
+
+## Runtime And Tooling
+
+- Node.js 22 or newer; CI uses Node.js 24.
+- TypeScript with ESM and `NodeNext` module resolution.
+- npm workspaces; do not introduce another package manager.
+- Node's built-in test runner, executed through `tsx`.
+- JSON is the local persistence format.
+- Generated output belongs in `dist/` and must not be committed.
+- Runtime state belongs in `.flashlearn/` and must not be committed.
+
+Install and verify from the repository root:
+
+```bash
+npm install
+npm run check
+npm run build
+```
+
+`npm run check` validates package boundaries, typechecks every workspace, and runs all tests.
+
+## Ownership Boundaries
+
+| Owner | Package | Scope |
+| --- | --- | --- |
+| David | `packages/cli` | Commands, configuration, orchestration, startup, and integration |
+| Manasa | `packages/extraction` | Repository traversal, extraction, generated questions/answers, and source attribution |
+| Sagar | `packages/storage` | JSON persistence and repository implementations |
+| Jenny | `packages/learning` | Scheduling, review scoring, and next-card selection |
+| Sara | `packages/frontend` | HTTP handlers, card UI, user actions, and fake Teams experience |
+
+Default to editing only the package relevant to the task. Keep implementation, package configuration, and tests inside that package. Do not make opportunistic changes in other packages.
+
+Shared paths require explicit cross-workstream intent:
+
+- `contracts/`
+- root `package.json` and `tsconfig.base.json`
+- `scripts/`
+- `.github/`
+- CLI integration code when wiring another package
+
+`packages/cli` is the composition root and may import all package implementations. Extraction, storage, learning, and frontend must not import one another. They may import only platform dependencies, their own code, and types from `contracts/`. `npm run boundaries` enforces this rule.
+
+The pipeline is a data handoff, not an import chain:
+
+```text
+David -> Manasa -> Sagar -> Jenny -> Sara
+```
+
+Use dependency injection and package-local mocks when another workstream is unfinished. Do not bypass a contract by importing another package's internal files.
+
+## Locked Contracts
+
+The authoritative TypeScript contract is `contracts/index.d.ts`. The authoritative HTTP contract is `contracts/http.md`. Do not silently change either file to accommodate an implementation.
+
+The shared models are:
+
+- `Card`: generated knowledge plus stable ID, timestamps, optional tags, and source attribution.
+- `GeneratedCard`: question, answer, and source only. It must not contain learning or UI state.
+- `ReviewState`: scheduling metadata owned by the learning engine and stored separately from cards.
+- `ReviewResult`: `easy`, `hard`, `correct`, or `incorrect`.
+- `CardRepository`: `save`, `get`, `list`, and `delete`.
+- `ReviewRepository`: `get` and `save`.
+
+Every card source must contain both repository-relative `path` and Git `sha`. Keep learning metadata separate from card generation.
+
+The locked endpoints are:
+
+```http
+GET /api/cards
+GET /api/cards/next
+GET /api/cards/:id
+POST /api/review
+```
+
+`GET /api/cards/next` must not expose the answer. `GET /api/cards/:id` reveals the complete card. JSON errors use `{ "error": "message" }`.
+
+Contract changes require coordinated review because all five workstreams may depend on them. When a task appears to require a contract change, first determine whether the behavior can be implemented behind the existing interface. If not, keep the change small, update both contract documentation and affected tests, and clearly call out the compatibility impact.
+
+## Package Notes
+
+### CLI
+
+- Commands are `flashlearn init`, `flashlearn generate [directory]`, and `flashlearn start`.
+- CLI selects paths and composes services; extraction owns actual repository traversal.
+- CLI starts the server; frontend owns HTTP routing and browser behavior.
+- Do not move scheduling, extraction, persistence, or UI logic into the CLI.
+
+### Extraction
+
+- `QuestionExtractor` is the extension point for an AI-backed generator.
+- `AnnotationExtractor` is only the deterministic baseline.
+- Ignore generated, dependency, Git, and FlashLearn state directories when traversing.
+- Return `GeneratedCard[]`; do not assign IDs, timestamps, or review metadata here.
+
+### Storage
+
+- `.flashlearn/cards.json` is an array of cards.
+- `.flashlearn/review.json` is an object keyed by card ID.
+- `.flashlearn/settings.json` contains local configuration and schema version data.
+- Preserve atomic writes and idempotent initialization.
+- Storage must not contain scheduling, extraction, or presentation decisions.
+
+### Learning
+
+- Scheduling functions should remain deterministic when given an explicit time.
+- Keep review calculations pure where practical.
+- Learning receives cards and review state through contracts; it does not load files or know how cards were generated.
+
+### Frontend
+
+- `FrontendServices` is the injected boundary used by HTTP handlers.
+- Keep endpoint payloads aligned with `contracts/http.md`.
+- The local page must work on desktop and mobile.
+- Frontend must not read JSON files or calculate review schedules directly.
+
+## Development Rules
+
+- Prefer the smallest correct implementation behind the existing contract.
+- Use strict TypeScript; do not solve type errors with `any` or unchecked casts unless the boundary genuinely has unknown input and validation follows immediately.
+- Keep ESM import conventions. Relative TypeScript imports use `.js` extensions for `NodeNext` output.
+- Preserve source attribution and ISO 8601 timestamps.
+- Validate untrusted HTTP and filesystem input at the owning boundary.
+- Avoid adding dependencies when Node.js APIs are sufficient.
+- Do not add cross-package helpers. Duplicate a small package-specific helper rather than coupling independent workstreams.
+- Do not edit generated `dist/` files or `package-lock.json` manually.
+- Do not commit `.flashlearn/`, secrets, tokens, or repository content ingested during local testing.
+
+## Testing And Completion
+
+Put tests in `packages/<name>/test/**/*.test.ts`. Run the focused workspace test while developing:
+
+```bash
+npm run test --workspace @flashlearn/extraction
+npm run typecheck --workspace @flashlearn/extraction
+```
+
+Replace the workspace name with the package being changed. Before considering a task complete, run from the root:
+
+```bash
+npm run check
+npm run build
+```
+
+Add or update tests for behavioral changes. Important integration invariants include:
+
+- initialization creates all three storage files without replacing existing data;
+- generation preserves `path` and `sha` attribution;
+- next-card responses hide answers;
+- answer endpoints return complete cards;
+- review submissions accept only locked review values;
+- incorrect reviews become due immediately under the current baseline algorithm;
+- non-CLI packages do not import one another.
+
+When reporting completion, state the package changed, user-visible behavior, contract impact, and verification commands run.

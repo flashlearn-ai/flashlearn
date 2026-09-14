@@ -4,6 +4,9 @@ import { extname, join, relative } from "node:path";
 import { promisify } from "node:util";
 import type { GeneratedCard } from "../../../contracts/index.js";
 
+export { ExtractionService } from "./workstream.js";
+export type { ExtractionWorkstream, SourceDocument } from "./workstream.js";
+
 const execFileAsync = promisify(execFile);
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".md", ".ts", ".tsx"]);
 const IGNORED_DIRECTORIES = new Set([".git", ".flashlearn", "dist", "node_modules"]);

@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "bin": { "flashlearn": "dist/index.js" },
+  "exports": {
+    ".": "./dist/index.js",
+    "./workstream": "./dist/workstream.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -1,5 +1,8 @@
 import type { Card, ReviewResult, ReviewState } from "../../../contracts/index.js";
 
+export { LearningService } from "./workstream.js";
+export type { LearningWorkstream } from "./workstream.js";
+
 export function scheduleReview(state: ReviewState, result: ReviewResult, now = new Date()): ReviewState {
   const successful = result !== "incorrect";
   const multipliers: Record<ReviewResult, number> = {
