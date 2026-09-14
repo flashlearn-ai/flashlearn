@@ -10,7 +10,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  package-scope:
+    name: Only Edit One Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check pull request package scope
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-package-scope.mjs "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+      - name: Check pushed package scope
+        if: github.event_name == 'push'
+        run: node scripts/check-package-scope.mjs "${{ github.event.before }}" "${{ github.sha }}"
+
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -21,4 +37,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - run: npm run build
+      - name: Smoke test built CLI
+        run: |
+          project="$(mktemp -d)"
+          node packages/cli/dist/index.js init "$project"
+          test -f "$project/.flashlearn/cards.json"
+          test -f "$project/.flashlearn/review.json"
+          test -f "$project/.flashlearn/settings.json"
+          node packages/cli/dist/index.js --help

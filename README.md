@@ -124,7 +124,7 @@ flowchart LR
   settings.json
 ```
 
-`npm run boundaries` rejects imports between implementation packages. Only the CLI can import package implementations. Configure the five placeholder teams in `.github/CODEOWNERS`, then enable required code-owner reviews and the CI check in GitHub branch protection.
+`npm run boundaries` rejects imports between implementation packages. Only the CLI can import package implementations. The `Package Scope` GitHub check rejects a pull request that edits more than one directory under `packages/`; shared root and contract changes do not count as an additional package. Configure the five placeholder teams in `.github/CODEOWNERS`, then enable required code-owner reviews and the CI checks in GitHub branch protection.
 
 ## Development
 
