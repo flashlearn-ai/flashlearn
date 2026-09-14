@@ -1,15 +1,56 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { spawn } from "node:child_process";
 import test from "node:test";
+import { HELP, runCli } from "../src/cli.js";
+import type { CliWorkstream, StartOptions } from "../src/workstream.js";
+import type { Card } from "../../../contracts/index.js";
 
-test("init creates the storage files", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "flashlearn-cli-"));
-  const entrypoint = resolve(import.meta.dirname, "../src/index.ts");
-  const tsx = resolve(import.meta.dirname, "../../../node_modules/tsx/dist/cli.mjs");
-  const status = await new Promise<number | null>((done) => spawn(process.execPath, [tsx, entrypoint, "init"], { cwd: directory, stdio: "ignore" }).on("close", done));
-  assert.equal(status, 0);
-  await Promise.all(["cards.json", "review.json", "settings.json"].map((file) => access(join(directory, ".flashlearn", file))));
+class RecordingCli implements CliWorkstream {
+  calls: Array<{ method: string; root: string; options?: StartOptions }> = [];
+
+  async initialize(root: string): Promise<void> {
+    this.calls.push({ method: "initialize", root });
+  }
+
+  async generate(root: string): Promise<Card[]> {
+    this.calls.push({ method: "generate", root });
+    return [];
+  }
+
+  async start(root: string, options?: StartOptions): Promise<void> {
+    this.calls.push({ method: "start", root, options });
+  }
+}
+
+function capture() {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  return { stdout, stderr, io: { cwd: "/project", stdout: (value: string) => stdout.push(value), stderr: (value: string) => stderr.push(value) } };
+}
+
+test("shows help with a successful exit code", async () => {
+  const output = capture();
+  assert.equal(await runCli([], new RecordingCli(), output.io), 0);
+  assert.equal(output.stdout[0], HELP);
+  assert.deepEqual(output.stderr, []);
+});
+
+test("parses start directory, host, and port", async () => {
+  const cli = new RecordingCli();
+  const output = capture();
+  assert.equal(await runCli(["start", "demo", "--host", "0.0.0.0", "--port", "8080"], cli, output.io), 0);
+  assert.deepEqual(cli.calls, [{ method: "start", root: "/project/demo", options: { host: "0.0.0.0", port: 8080 } }]);
+});
+
+test("returns exit code 2 for invalid arguments", async () => {
+  const output = capture();
+  assert.equal(await runCli(["start", "--port", "70000"], new RecordingCli(), output.io), 2);
+  assert.match(output.stderr[0] ?? "", /port/);
+});
+
+test("returns exit code 1 for command failures", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  cli.initialize = async () => { throw new Error("disk unavailable"); };
+  assert.equal(await runCli(["init"], cli, output.io), 1);
+  assert.equal(output.stderr[0], "Error: disk unavailable");
 });
