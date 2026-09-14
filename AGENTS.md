@@ -36,6 +36,14 @@ npm run build
 
 `npm run check` validates package boundaries, typechecks every workspace, and runs all tests.
 
+GitHub CI exposes three independent statuses:
+
+- `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`.
+- `CI / Validate` runs `npm run check`.
+- `CI / Build` runs the whole-project build and compiled CLI smoke tests.
+
+Husky installs through the root `prepare` script. Pre-commit runs package boundaries and staged whitespace checks. Pre-push runs package scope, `npm run check`, and `npm run build`. Hooks provide early feedback, but CI remains authoritative because hooks can be bypassed.
+
 ## Ownership Boundaries
 
 | Owner | Package | Scope |
@@ -98,7 +106,11 @@ Contract changes require coordinated review because all five workstreams may dep
 
 ### CLI
 
-- Commands are `flashlearn init`, `flashlearn generate [directory]`, and `flashlearn start`.
+- Commands are `flashlearn init [directory]`, `flashlearn generate [directory]`, and `flashlearn start [directory]`.
+- General options are `--help`, `-h`, `--version`, and `-v`; start also accepts `--host` and `--port`.
+- Exit code `0` means success, `1` means execution failure, and `2` means invalid arguments.
+- `src/index.ts` is the executable entrypoint, `src/cli.ts` parses commands, `CliService` orchestrates, and `src/production.ts` wires real package implementations.
+- Keep external capabilities behind the CLI-owned interfaces in `src/dependencies.ts` so orchestration stays testable.
 - CLI selects paths and composes services; extraction owns actual repository traversal.
 - CLI starts the server; frontend owns HTTP routing and browser behavior.
 - Do not move scheduling, extraction, persistence, or UI logic into the CLI.
@@ -168,5 +180,22 @@ Add or update tests for behavioral changes. Important integration invariants inc
 - review submissions accept only locked review values;
 - incorrect reviews become due immediately under the current baseline algorithm;
 - non-CLI packages do not import one another.
+
+CLI integration tests use `packages/cli/test/fakes/harness.ts`, which provides in-memory repositories and recording dependencies. Keep package handshake assertions in `contracts.test.ts` and end-to-end orchestration assertions in `pipeline.test.ts`; assert calls and contract data rather than duplicating another package's algorithm.
+
+## Documentation Maintenance
+
+Treat this file as a living contract. Before completing any development task, compare the change against `AGENTS.md`, the root `README.md`, and the affected package README. Update documentation in the same change when any of these facts change:
+
+- package ownership or allowed dependencies;
+- shared models, repository interfaces, endpoints, or storage formats;
+- CLI commands, options, defaults, output, or exit codes;
+- source layout, integration seams, or dependency-injection boundaries;
+- npm scripts, runtime requirements, hooks, test commands, or CI check names;
+- important invariants that future contributors must preserve.
+
+Do not rewrite documentation when behavior is unchanged. Keep updates factual and derived from committed code rather than plans. After editing documentation, search for obsolete names and examples, run `git diff --check`, and verify every documented command affected by the change.
+
+When this guide becomes too broad for one package, add a nested `packages/<name>/AGENTS.md`. Nested guides may add package-specific instructions but must not weaken root ownership, contract, or verification rules.
 
 When reporting completion, state the package changed, user-visible behavior, contract impact, and verification commands run.

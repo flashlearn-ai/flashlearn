@@ -6,7 +6,7 @@ FlashLearn is organized as exactly five independently owned npm workspace packag
 
 | Workstream | Owner | Package | Responsibilities | May depend on |
 | --- | --- | --- | --- | --- |
-| **CLI / Project Management Layer** | David | `packages/cli` | `flashlearn init`, `flashlearn generate`, `flashlearn start`, directory selection, orchestration, local web server startup, contracts, and integration between components. | All packages |
+| **CLI / Project Management Layer** | David | `packages/cli` | `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, directory selection, orchestration, local web server startup, contracts, and integration between components. | All packages |
 | **Question Extraction / AI Generation** | Manasa | `packages/extraction` | Repository ingestion and scanning, knowledge extraction, question generation, answer generation, and source attribution (`path`, `sha`). | Contracts only |
 | **Storage / Repository Layer** | Sagar | `packages/storage` | Card persistence, retrieval APIs, local JSON storage format, and repository abstractions. | Contracts only |
 | **Learning Engine / Spaced Repetition** | Jenny | `packages/learning` | Review scheduling, spaced repetition logic, card selection, and easy/hard/correct/incorrect scoring. | Contracts only |
@@ -35,7 +35,7 @@ David is responsible for defining and coordinating agreement on these contracts 
 1. `Card` and `GeneratedCard`
 2. `ReviewState` and review result values
 3. `CardRepository` and `ReviewRepository`
-4. CLI commands: `flashlearn init`, `flashlearn generate <directory>`, and `flashlearn start`
+4. CLI commands: `flashlearn init [directory]`, `flashlearn generate [directory]`, and `flashlearn start [directory] [--host <host>] [--port <port>]`
 5. API endpoint names and HTTP payloads
 
 The locked HTTP endpoints are:
@@ -124,7 +124,7 @@ flowchart LR
   settings.json
 ```
 
-`npm run boundaries` rejects imports between implementation packages. Only the CLI can import package implementations. The `Package Scope` GitHub check rejects a pull request that edits more than one directory under `packages/`; shared root and contract changes do not count as an additional package. Configure the five placeholder teams in `.github/CODEOWNERS`, then enable required code-owner reviews and the CI checks in GitHub branch protection.
+`npm run boundaries` rejects imports between implementation packages. Only the CLI can import package implementations. `CI / Only Edit One Package` rejects a pull request that edits more than one directory under `packages/`; shared root and contract changes do not count as an additional package. `CI / Validate` runs boundaries, typechecks, and tests. `CI / Build` builds the complete workspace and smoke-tests the compiled CLI. Configure the five placeholder teams in `.github/CODEOWNERS`, then enable required code-owner reviews and these CI checks in GitHub branch protection.
 
 ## Development
 
@@ -138,10 +138,15 @@ npm run test --workspace @flashlearn/learning
 Run the development CLI from the repository root:
 
 ```bash
-npx tsx packages/cli/src/index.ts init
-npx tsx packages/cli/src/index.ts generate .
-npx tsx packages/cli/src/index.ts start
+npm run dev --workspace @flashlearn/cli -- --help
+npm run dev --workspace @flashlearn/cli -- init .
+npm run dev --workspace @flashlearn/cli -- generate .
+npm run dev --workspace @flashlearn/cli -- start . --host 127.0.0.1 --port 4173
 ```
+
+The CLI returns exit code `0` for success, `1` for execution failures, and `2` for invalid commands or arguments. See `packages/cli/README.md` for its dependency-injection and integration-test structure.
+
+Husky installs through the root `prepare` script. Pre-commit checks package boundaries and staged whitespace. Pre-push enforces one-package scope, runs all checks, and builds the complete workspace. CI remains authoritative because hooks can be bypassed with `--no-verify`.
 
 The baseline extractor creates cards from adjacent annotations in supported source and Markdown files:
 
