@@ -1,5 +1,12 @@
 import type { Card, ReviewResult, ReviewState } from "../../../contracts/index.js";
 
+const MINIMUM_EASE_FACTOR = 1.3;
+const INITIAL_EASE_FACTOR = 2.5;
+
+function compareTimestamps(left: string, right: string): number {
+  return new Date(left).getTime() - new Date(right).getTime();
+}
+
 /** Scheduling and card-selection operations owned by the learning engine. */
 export interface LearningWorkstream {
   createReviewState(cardId: string): ReviewState;
@@ -7,26 +14,68 @@ export interface LearningWorkstream {
   selectNextCard(cards: Card[], states: ReviewState[], now?: Date): Card | null;
 }
 
-/** Jenny: fill in the scheduling rules while keeping these methods pure. */
+/** Deterministic spaced-repetition rules with no storage or extraction dependencies. */
 export class LearningService implements LearningWorkstream {
   createReviewState(cardId: string): ReviewState {
-    // TODO(Jenny): adjust defaults if the agreed algorithm requires it.
     return {
       cardId,
-      easeFactor: 2.5,
+      easeFactor: INITIAL_EASE_FACTOR,
       intervalDays: 0,
       reviewCount: 0,
       correctCount: 0,
     };
   }
 
-  scheduleReview(state: ReviewState, _result: ReviewResult, _now?: Date): ReviewState {
-    // TODO(Jenny): calculate and return updated review state.
-    return state;
+  scheduleReview(state: ReviewState, result: ReviewResult, now = new Date()): ReviewState {
+    const successful = result !== "incorrect";
+    const multipliers: Record<ReviewResult, number> = {
+      incorrect: 0,
+      hard: 1.2,
+      correct: state.correctCount === 0 ? 1 : state.easeFactor,
+      easy: state.correctCount === 0 ? 4 : state.easeFactor + 0.5,
+    };
+    const intervalDays = successful
+      ? Math.max(1, Math.round(Math.max(1, state.intervalDays) * multipliers[result]))
+      : 0;
+    const easeDelta = result === "easy"
+      ? 0.15
+      : result === "hard"
+        ? -0.15
+        : result === "incorrect"
+          ? -0.2
+          : 0;
+    const nextReview = new Date(now);
+    nextReview.setUTCDate(nextReview.getUTCDate() + intervalDays);
+
+    return {
+      ...state,
+      easeFactor: Math.max(MINIMUM_EASE_FACTOR, state.easeFactor + easeDelta),
+      intervalDays,
+      lastReviewed: now.toISOString(),
+      nextReview: nextReview.toISOString(),
+      reviewCount: state.reviewCount + 1,
+      correctCount: state.correctCount + (successful ? 1 : 0),
+    };
   }
 
-  selectNextCard(cards: Card[], _states: ReviewState[], _now?: Date): Card | null {
-    // TODO(Jenny): choose the earliest due card.
-    return cards[0] ?? null;
+  selectNextCard(cards: Card[], states: ReviewState[], now = new Date()): Card | null {
+    const byCard = new Map(states.map((state) => [state.cardId, state]));
+
+    return cards
+      .filter((card) => {
+        const nextReview = byCard.get(card.id)?.nextReview;
+        return !nextReview || new Date(nextReview) <= now;
+      })
+      .sort((left, right) => {
+        const leftDue = byCard.get(left.id)?.nextReview;
+        const rightDue = byCard.get(right.id)?.nextReview;
+        if (leftDue && rightDue) {
+          return compareTimestamps(leftDue, rightDue)
+            || compareTimestamps(left.createdAt, right.createdAt);
+        }
+        if (leftDue) return -1;
+        if (rightDue) return 1;
+        return compareTimestamps(left.createdAt, right.createdAt);
+      })[0] ?? null;
   }
 }
