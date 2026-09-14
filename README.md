@@ -4,37 +4,37 @@ FlashLearn turns a Git repository into source-attributed study cards and serves 
 
 ## Feature Map
 
-This map tracks completion of the agreed owner workstreams, not whether prototype code exists. ✅ means the responsible owner has completed and merged the agreed package implementation. 🚧 means the workstream is still in progress. Starter code, mocks, and baseline implementations do not make a package complete.
+This map tracks completion of the agreed owner workstreams, not whether prototype code exists. ✅ means the responsible owner has completed and merged the agreed package implementation. 🚧 means the workstream is still in progress. Package colors match the contract map: 🔵 CLI, 🟢 extraction, 🟠 storage, 🟣 learning, and 🔴 frontend. Starter code, mocks, and baseline implementations do not make a package complete.
 
-1. ✅ **CLI / orchestration** (`packages/cli`)
+1. 🔵 ✅ **CLI / orchestration** (`packages/cli`)
    - **Owner:** David
    - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, configuration, directory selection, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
    - **Dependencies:** May depend on all packages
    - **Current:** Commands, package wiring, and integration tests are implemented
    - **Next:** Integrate completed owner packages as they merge
 
-2. 🚧 **Extraction / AI generation** (`packages/extraction`)
+2. 🟢 🚧 **Extraction / AI generation** (`packages/extraction`)
    - **Owner:** Manasa
    - **Features:** Repository ingestion and scanning, knowledge extraction, question and answer generation, and source attribution (`path`, `sha`)
    - **Dependencies:** Shared contracts only
    - **Current:** Starter repository scanning and annotation extraction provide a development baseline
    - **Next:** Complete repository ingestion and AI-backed question and answer generation
 
-3. 🚧 **Storage / repositories** (`packages/storage`)
+3. 🟠 🚧 **Storage / repositories** (`packages/storage`)
    - **Owner:** Sagar
    - **Features:** Card persistence, retrieval APIs, local JSON storage format, and repository abstractions
    - **Dependencies:** Shared contracts only
    - **Current:** Starter JSON repositories demonstrate the locked persistence interfaces
    - **Next:** Complete and validate the storage package implementation
 
-4. 🚧 **Learning engine** (`packages/learning`)
+4. 🟣 🚧 **Learning engine** (`packages/learning`)
    - **Owner:** Jenny
    - **Features:** Review scheduling, spaced-repetition logic, due-card selection, and easy/hard/correct/incorrect scoring
    - **Dependencies:** Shared contracts only
    - **Current:** A baseline scheduler demonstrates review-state updates and due-card selection
    - **Next:** Complete and validate the agreed spaced-repetition behavior
 
-5. 🚧 **Frontend / fake Teams** (`packages/frontend`)
+5. 🔴 🚧 **Frontend / fake Teams** (`packages/frontend`)
    - **Owner:** Sara
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
@@ -86,15 +86,30 @@ Types are physically declared in `contracts/index.d.ts` when they cross package 
 
 ```mermaid
 flowchart TD
-  Extraction["<b>Extraction / AI generation</b><br/>Manasa · packages/extraction<br/><br/><b>Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>Type:</b> GeneratedCard<br/>question · answer · source.path · source.sha"]
+  subgraph ExtractionRegion["Extraction / AI generation · Manasa · packages/extraction"]
+    direction TB
+    Extraction["<b>Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>Type:</b> GeneratedCard<br/>question · answer · source.path · source.sha"]
+  end
 
-  CLI["<b>CLI / orchestration</b><br/>David · packages/cli<br/><br/><b>Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>Type:</b> StartOptions<br/>host? · port?<br/><br/><b>Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
+  subgraph CLIRegion["CLI / orchestration · David · packages/cli"]
+    direction TB
+    CLI["<b>Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>Type:</b> StartOptions<br/>host? · port?<br/><br/><b>Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
+  end
 
-  Storage["<b>Storage / repositories</b><br/>Sagar · packages/storage<br/><br/><b>Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>Type:</b> ReviewRepository<br/>get · save"]
+  subgraph StorageRegion["Storage / repositories · Sagar · packages/storage"]
+    direction TB
+    Storage["<b>Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>Type:</b> ReviewRepository<br/>get · save"]
+  end
 
-  Learning["<b>Learning engine</b><br/>Jenny · packages/learning<br/><br/><b>Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
+  subgraph LearningRegion["Learning engine · Jenny · packages/learning"]
+    direction TB
+    Learning["<b>Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
+  end
 
-  Frontend["<b>Frontend / fake Teams</b><br/>Sara · packages/frontend<br/><br/><b>Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>Type:</b> CardPreview<br/>id · question · source.path · source.sha<br/><br/><b>Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>HTTP:</b><br/>GET /api/cards · GET /api/cards/next<br/>GET /api/cards/:id · POST /api/review"]
+  subgraph FrontendRegion["Frontend / fake Teams · Sara · packages/frontend"]
+    direction TB
+    Frontend["<b>Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>Type:</b> CardPreview<br/>id · question · source.path · source.sha<br/><br/><b>Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>HTTP:</b><br/>GET /api/cards · GET /api/cards/next<br/>GET /api/cards/:id · POST /api/review"]
+  end
 
   Extraction -->|GeneratedCard| CLI
   CLI -->|Card + repository operations| Storage
@@ -111,6 +126,11 @@ flowchart TD
   class Storage storage;
   class Learning learning;
   class Frontend frontend;
+  style ExtractionRegion fill:#f0fdf4,stroke:#16a34a,stroke-width:3px
+  style CLIRegion fill:#eff6ff,stroke:#2563eb,stroke-width:3px
+  style StorageRegion fill:#fffbeb,stroke:#d97706,stroke-width:3px
+  style LearningRegion fill:#faf5ff,stroke:#9333ea,stroke-width:3px
+  style FrontendRegion fill:#fff1f2,stroke:#e11d48,stroke-width:3px
 ```
 
 Contract ownership is:
