@@ -2,7 +2,7 @@
 
 **Owner:** Jenny
 
-Fill in `LearningService` in `src/workstream.ts`. It currently supplies initial state, leaves reviews unchanged, and selects the first card, keeping integration usable while the algorithm is developed.
+`LearningService` implements deterministic review scheduling and due-card selection behind the locked learning contracts. The package has no storage, extraction, CLI, or frontend dependencies, so development and tests use plain in-memory cards and review states while the other workstreams are in progress.
 
 | Method | Expected behavior |
 | --- | --- |
@@ -11,3 +11,16 @@ Fill in `LearningService` in `src/workstream.ts`. It currently supplies initial 
 | `selectNextCard(cards, states, now?)` | Select the most appropriate due card, or `null` when none is due. |
 
 Keep methods deterministic when `now` is supplied. Do not read repositories or know how cards were extracted.
+
+## Baseline Scheduling Rules
+
+| Result | Interval | Ease change | Counts as correct |
+| --- | --- | --- | --- |
+| `incorrect` | Due immediately | `-0.20` | No |
+| `hard` | Previous interval multiplied by `1.2`, minimum one day | `-0.15` | Yes |
+| `correct` | One day on the first review, then multiplied by the current ease | None | Yes |
+| `easy` | Four days on the first review, then multiplied by the current ease plus `0.5` | `+0.15` | Yes |
+
+Intervals are rounded to whole days and the ease factor never falls below `1.3`. Unreviewed cards are immediately eligible. Otherwise, `selectNextCard` chooses the card with the earliest due timestamp and returns `null` when no card is due.
+
+The free `scheduleReview` and `selectNextCard` exports used by the CLI delegate to `LearningService`, keeping one canonical implementation.
