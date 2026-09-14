@@ -194,12 +194,12 @@ Treat this file as a living contract. Before completing any development task, co
 - npm scripts, runtime requirements, hooks, test commands, or CI check names;
 - important invariants that future contributors must preserve.
 
-The root README feature map is the authoritative high-level status view. Update its current capability, next milestone, and status whenever a change adds, removes, or materially alters user-visible behavior. Use only these statuses:
+The root README feature map is the authoritative high-level status view. It tracks completion of owner workstreams, not the presence of prototype code. Keep it as a numbered list ordered by package (`cli`, `extraction`, `storage`, `learning`, `frontend`) with the responsible person named on each item. Update its current capability, next milestone, and status whenever a change adds, removes, or materially alters a workstream deliverable. Use only these statuses:
 
-- `Done`: a tested baseline is implemented on `main`;
-- `In Progress`: the baseline is partial or the listed product capability is still being built.
+- `✅ Done`: the responsible owner has completed and merged the agreed package or shared-infrastructure deliverable;
+- `🚧 In Progress`: the owner is still implementing or validating the agreed deliverable.
 
-Do not mark planned work as done based on scaffolds, interfaces, mocks, open pull requests, or unmerged branches. Derive status from code and tests on the branch that will become `main`. Keep feature-map rows brief; implementation detail belongs in package READMEs.
+Do not mark a workstream done based on scaffolds, interfaces, mocks, starter implementations, open pull requests, or unmerged branches. A tested prototype may be listed as the current capability while its owner workstream remains in progress. Keep feature-map rows brief; implementation detail belongs in package READMEs.
 
 Do not rewrite documentation when behavior is unchanged. Keep updates factual and derived from committed code rather than plans. After editing documentation, search for obsolete names and examples, run `git diff --check`, and verify every documented command affected by the change.
 
