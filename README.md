@@ -88,32 +88,32 @@ Types are physically declared in `contracts/index.d.ts` when they cross package 
 flowchart TB
   subgraph CLI["CLI / orchestration - David - packages/cli"]
     CliMethods["Methods<br/>initialize(root): Promise&lt;void&gt;<br/>generate(directory): Promise&lt;Card[]&gt;<br/>start(root, options?): Promise&lt;void&gt;"]
-    CliTypes["Owned types<br/>StartOptions<br/>host?: string<br/>port?: number"]
-    Card["Card<br/>id: string<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string<br/>tags?: string[]<br/>createdAt: string<br/>updatedAt: string"]
+    CliTypes["<b>Type:</b> StartOptions<br/>host?: string<br/>port?: number"]
+    Card["<b>Type:</b> Card<br/>id: string<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string<br/>tags?: string[]<br/>createdAt: string<br/>updatedAt: string"]
   end
 
   subgraph Extraction["Extraction / AI generation - Manasa - packages/extraction"]
     ExtractionMethods["Methods<br/>scanRepository(root): Promise&lt;SourceDocument[]&gt;<br/>generateFromDocument(document): Promise&lt;GeneratedCard[]&gt;<br/>generateFromRepository(root): Promise&lt;GeneratedCard[]&gt;"]
-    SourceDocument["SourceDocument<br/>path: string<br/>content: string<br/>sha: string"]
-    GeneratedCard["GeneratedCard<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string"]
+    SourceDocument["<b>Type:</b> SourceDocument<br/>path: string<br/>content: string<br/>sha: string"]
+    GeneratedCard["<b>Type:</b> GeneratedCard<br/>question: string<br/>answer: string<br/>source.path: string<br/>source.sha: string"]
   end
 
   subgraph Storage["Storage / repositories - Sagar - packages/storage"]
     StorageMethods["Methods<br/>initialize(root): Promise&lt;void&gt;<br/>createCardRepository(root)<br/>createReviewRepository(root)"]
-    CardRepo["CardRepository<br/>save(Card): Promise&lt;void&gt;<br/>get(id): Promise&lt;Card | null&gt;<br/>list(): Promise&lt;Card[]&gt;<br/>delete(id): Promise&lt;void&gt;"]
-    ReviewRepo["ReviewRepository<br/>get(cardId): Promise&lt;ReviewState&gt;<br/>save(ReviewState): Promise&lt;void&gt;"]
+    CardRepo["<b>Type:</b> CardRepository<br/>save(Card): Promise&lt;void&gt;<br/>get(id): Promise&lt;Card | null&gt;<br/>list(): Promise&lt;Card[]&gt;<br/>delete(id): Promise&lt;void&gt;"]
+    ReviewRepo["<b>Type:</b> ReviewRepository<br/>get(cardId): Promise&lt;ReviewState&gt;<br/>save(ReviewState): Promise&lt;void&gt;"]
   end
 
   subgraph Learning["Learning engine - Jenny - packages/learning"]
     LearningMethods["Methods<br/>createReviewState(cardId): ReviewState<br/>scheduleReview(state, result, now?): ReviewState<br/>selectNextCard(cards, states, now?): Card | null"]
-    ReviewState["ReviewState<br/>cardId: string<br/>easeFactor: number<br/>intervalDays: number<br/>lastReviewed?: string<br/>nextReview?: string<br/>reviewCount: number<br/>correctCount: number"]
-    ReviewResult["ReviewResult<br/>easy | hard | correct | incorrect"]
+    ReviewState["<b>Type:</b> ReviewState<br/>cardId: string<br/>easeFactor: number<br/>intervalDays: number<br/>lastReviewed?: string<br/>nextReview?: string<br/>reviewCount: number<br/>correctCount: number"]
+    ReviewResult["<b>Type:</b> ReviewResult<br/>easy | hard | correct | incorrect"]
   end
 
   subgraph Frontend["Frontend / fake Teams - Sara - packages/frontend"]
     FrontendMethods["Methods<br/>createServer(services): Server<br/>renderPage(): string<br/>listCards()<br/>nextCard()<br/>getCard(id)<br/>submitReview(cardId, result)"]
-    CardPreview["CardPreview<br/>id: string<br/>question: string<br/>source.path: string<br/>source.sha: string"]
-    ReviewRequest["SubmitReviewRequest<br/>cardId: string<br/>result: ReviewResult"]
+    CardPreview["<b>Type:</b> CardPreview<br/>id: string<br/>question: string<br/>source.path: string<br/>source.sha: string"]
+    ReviewRequest["<b>Type:</b> SubmitReviewRequest<br/>cardId: string<br/>result: ReviewResult"]
     Endpoints["HTTP endpoints<br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
   end
 
