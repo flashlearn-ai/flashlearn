@@ -1,6 +1,14 @@
-# FlashLearn
+<p align="center">
+  <img src="flashlearn%20icon.png" alt="FlashLearn icon" width="128" height="121">
+</p>
 
-FlashLearn turns a Git repository into source-attributed study cards and serves them through a local spaced-repetition experience. It is organized as five independently owned npm workspace packages connected by stable contracts, allowing each workstream to develop and test in parallel.
+<h1 align="center">FlashLearn</h1>
+
+<p align="center"><strong>Agentic AI for compounding learning velocity.</strong></p>
+
+<p align="center">Onboard effectively to unfamiliar code repositories by turning their source into attributed study cards and a local spaced-repetition experience.</p>
+
+<p align="center"><strong>Local-first and secure by design:</strong> questions and generated learning content stay within your existing repository access controls.</p>
 
 ## Feature Map
 
