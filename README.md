@@ -6,32 +6,42 @@ FlashLearn turns a Git repository into source-attributed study cards and serves 
 
 This map tracks completion of the agreed owner workstreams, not whether prototype code exists. ✅ means the responsible owner has completed and merged the agreed package implementation. 🚧 means the workstream is still in progress. Starter code, mocks, and baseline implementations do not make a package complete.
 
-1. ✅ **CLI / orchestration** (`packages/cli`) — **David**
-   Commands, dependency injection, package wiring, integration fakes, and pipeline tests are implemented. Next: integrate completed owner packages as they merge.
+1. ✅ **CLI / orchestration** (`packages/cli`)
+   - **Owner:** David
+   - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, configuration, directory selection, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
+   - **Dependencies:** May depend on all packages
+   - **Current:** Commands, package wiring, and integration tests are implemented
+   - **Next:** Integrate completed owner packages as they merge
 
-2. 🚧 **Extraction / AI generation** (`packages/extraction`) — **Manasa**
-   Starter repository scanning and annotation extraction provide a development baseline. Next: complete repository ingestion and AI-backed question and answer generation.
+2. 🚧 **Extraction / AI generation** (`packages/extraction`)
+   - **Owner:** Manasa
+   - **Features:** Repository ingestion and scanning, knowledge extraction, question and answer generation, and source attribution (`path`, `sha`)
+   - **Dependencies:** Shared contracts only
+   - **Current:** Starter repository scanning and annotation extraction provide a development baseline
+   - **Next:** Complete repository ingestion and AI-backed question and answer generation
 
-3. 🚧 **Storage / repositories** (`packages/storage`) — **Sagar**
-   Starter JSON repositories demonstrate the locked persistence interfaces. Next: complete and validate the storage package implementation.
+3. 🚧 **Storage / repositories** (`packages/storage`)
+   - **Owner:** Sagar
+   - **Features:** Card persistence, retrieval APIs, local JSON storage format, and repository abstractions
+   - **Dependencies:** Shared contracts only
+   - **Current:** Starter JSON repositories demonstrate the locked persistence interfaces
+   - **Next:** Complete and validate the storage package implementation
 
-4. 🚧 **Learning engine** (`packages/learning`) — **Jenny**
-   A baseline scheduler demonstrates review-state updates and due-card selection. Next: complete and validate the agreed spaced-repetition behavior.
+4. 🚧 **Learning engine** (`packages/learning`)
+   - **Owner:** Jenny
+   - **Features:** Review scheduling, spaced-repetition logic, due-card selection, and easy/hard/correct/incorrect scoring
+   - **Dependencies:** Shared contracts only
+   - **Current:** A baseline scheduler demonstrates review-state updates and due-card selection
+   - **Next:** Complete and validate the agreed spaced-repetition behavior
 
-5. 🚧 **Frontend / fake Teams** (`packages/frontend`) — **Sara**
-   Starter HTTP endpoints and a minimal reveal page demonstrate the integration boundary. Next: complete the fake Teams experience, review controls, and frontend behavior.
+5. 🚧 **Frontend / fake Teams** (`packages/frontend`)
+   - **Owner:** Sara
+   - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
+   - **Dependencies:** Shared contracts only
+   - **Current:** Starter HTTP endpoints and a minimal reveal page demonstrate the integration boundary
+   - **Next:** Complete the fake Teams experience, review controls, and frontend behavior
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
-
-## Workstreams
-
-| Workstream | Owner | Package | Responsibilities | May depend on |
-| --- | --- | --- | --- | --- |
-| **CLI / Project Management Layer** | David | `packages/cli` | `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, directory selection, orchestration, local web server startup, contracts, and integration between components. | All packages |
-| **Question Extraction / AI Generation** | Manasa | `packages/extraction` | Repository ingestion and scanning, knowledge extraction, question generation, answer generation, and source attribution (`path`, `sha`). | Contracts only |
-| **Storage / Repository Layer** | Sagar | `packages/storage` | Card persistence, retrieval APIs, local JSON storage format, and repository abstractions. | Contracts only |
-| **Learning Engine / Spaced Repetition** | Jenny | `packages/learning` | Review scheduling, spaced repetition logic, card selection, and easy/hard/correct/incorrect scoring. | Contracts only |
-| **UI / Fake Teams Experience** | Sara | `packages/frontend` | Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience. | Contracts only |
 
 David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
 

@@ -194,7 +194,7 @@ Treat this file as a living contract. Before completing any development task, co
 - npm scripts, runtime requirements, hooks, test commands, or CI check names;
 - important invariants that future contributors must preserve.
 
-The root README feature map is the authoritative high-level status view. It tracks completion of owner workstreams, not the presence of prototype code. Keep it as a numbered list ordered by package (`cli`, `extraction`, `storage`, `learning`, `frontend`) with the responsible person named on each item. Update its current capability, next milestone, and status whenever a change adds, removes, or materially alters a workstream deliverable. Use only these statuses:
+The root README feature map is the authoritative high-level status view. It tracks completion of owner workstreams, not the presence of prototype code. Keep it as a numbered list ordered by package (`cli`, `extraction`, `storage`, `learning`, `frontend`). Each item must use sub-bullets for owner, features, dependencies, current capability, and next milestone. Update it whenever a change adds, removes, or materially alters a workstream deliverable. Use only these statuses:
 
 - `✅ Done`: the responsible owner has completed and merged the agreed package or shared-infrastructure deliverable;
 - `🚧 In Progress`: the owner is still implementing or validating the agreed deliverable.
