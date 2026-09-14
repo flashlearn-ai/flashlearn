@@ -6,35 +6,40 @@ FlashLearn turns a Git repository into source-attributed study cards and serves 
 
 This map tracks completion of the agreed owner workstreams, not whether prototype code exists. ✅ means the responsible owner has completed and merged the agreed package implementation. 🚧 means the workstream is still in progress. Package colors match the contract map: 🔵 CLI, 🟢 extraction, 🟠 storage, 🟣 learning, and 🔴 frontend. Starter code, mocks, and baseline implementations do not make a package complete.
 
-1. 🔵 ✅ **CLI / orchestration** (`packages/cli`)
+1. 🔵 **CLI / orchestration** (`packages/cli`)
+   - **Status:** ✅ Done
    - **Owner:** David
    - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, configuration, directory selection, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
    - **Dependencies:** May depend on all packages
    - **Current:** Commands, package wiring, and integration tests are implemented
    - **Next:** Integrate completed owner packages as they merge
 
-2. 🟢 🚧 **Extraction / AI generation** (`packages/extraction`)
+2. 🟢 **Extraction / AI generation** (`packages/extraction`)
+   - **Status:** 🚧 In Progress
    - **Owner:** Manasa
    - **Features:** Repository ingestion and scanning, knowledge extraction, question and answer generation, and source attribution (`path`, `sha`)
    - **Dependencies:** Shared contracts only
    - **Current:** Starter repository scanning and annotation extraction provide a development baseline
    - **Next:** Complete repository ingestion and AI-backed question and answer generation
 
-3. 🟠 🚧 **Storage / repositories** (`packages/storage`)
+3. 🟠 **Storage / repositories** (`packages/storage`)
+   - **Status:** 🚧 In Progress
    - **Owner:** Sagar
    - **Features:** Card persistence, retrieval APIs, local JSON storage format, and repository abstractions
    - **Dependencies:** Shared contracts only
    - **Current:** Starter JSON repositories demonstrate the locked persistence interfaces
    - **Next:** Complete and validate the storage package implementation
 
-4. 🟣 🚧 **Learning engine** (`packages/learning`)
+4. 🟣 **Learning engine** (`packages/learning`)
+   - **Status:** 🚧 In Progress
    - **Owner:** Jenny
    - **Features:** Review scheduling, spaced-repetition logic, due-card selection, and easy/hard/correct/incorrect scoring
    - **Dependencies:** Shared contracts only
    - **Current:** A baseline scheduler demonstrates review-state updates and due-card selection
    - **Next:** Complete and validate the agreed spaced-repetition behavior
 
-5. 🔴 🚧 **Frontend / fake Teams** (`packages/frontend`)
+5. 🔴 **Frontend / fake Teams** (`packages/frontend`)
+   - **Status:** 🚧 In Progress
    - **Owner:** Sara
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
@@ -86,35 +91,36 @@ Types are physically declared in `contracts/index.d.ts` when they cross package 
 
 ```mermaid
 flowchart TD
-  subgraph ExtractionRegion["🟢 Extraction / AI generation · Manasa · packages/extraction"]
-    direction TB
-    Extraction["<b>Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>Type:</b> GeneratedCard<br/>question · answer · source.path · source.sha"]
-  end
-
   subgraph CLIRegion["🔵 CLI / orchestration · David · packages/cli"]
-    direction TB
     CLI["<b>Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>Type:</b> StartOptions<br/>host? · port?<br/><br/><b>Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
   end
 
-  subgraph StorageRegion["🟠 Storage / repositories · Sagar · packages/storage"]
-    direction TB
-    Storage["<b>Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>Type:</b> ReviewRepository<br/>get · save"]
+  subgraph PackagePipeline["Contract handoffs"]
+    direction LR
+    subgraph ExtractionRegion["🟢 Extraction / AI generation · Manasa · packages/extraction"]
+      Extraction["<b>Methods:</b><br/>scanRepository(root)<br/>generateFromDocument(document)<br/>generateFromRepository(root)<br/><br/><b>Type:</b> SourceDocument<br/>path · content · sha<br/><br/><b>Type:</b> GeneratedCard<br/>question · answer<br/>source.path · source.sha"]
+    end
+
+    subgraph StorageRegion["🟠 Storage / repositories · Sagar · packages/storage"]
+      Storage["<b>Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>Type:</b> ReviewRepository<br/>get · save"]
+    end
+
+    subgraph LearningRegion["🟣 Learning engine · Jenny · packages/learning"]
+      Learning["<b>Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
+    end
+
+    subgraph FrontendRegion["🔴 Frontend / fake Teams · Sara · packages/frontend"]
+      Frontend["<b>Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>Type:</b> CardPreview<br/>id · question<br/>source.path · source.sha<br/><br/><b>Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>HTTP:</b><br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
+    end
   end
 
-  subgraph LearningRegion["🟣 Learning engine · Jenny · packages/learning"]
-    direction TB
-    Learning["<b>Methods:</b><br/>createReviewState(cardId)<br/>scheduleReview(state, result, now?)<br/>selectNextCard(cards, states, now?)<br/><br/><b>Type:</b> ReviewState<br/>cardId · easeFactor · intervalDays<br/>lastReviewed? · nextReview?<br/>reviewCount · correctCount<br/><br/><b>Type:</b> ReviewResult<br/>easy · hard · correct · incorrect"]
-  end
-
-  subgraph FrontendRegion["🔴 Frontend / fake Teams · Sara · packages/frontend"]
-    direction TB
-    Frontend["<b>Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>Type:</b> CardPreview<br/>id · question · source.path · source.sha<br/><br/><b>Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>HTTP:</b><br/>GET /api/cards · GET /api/cards/next<br/>GET /api/cards/:id · POST /api/review"]
-  end
-
-  Extraction -->|GeneratedCard| CLI
-  CLI -->|Card + repository operations| Storage
+  Extraction -->|GeneratedCard via CLI| Storage
   Storage -->|Card + ReviewState| Learning
   Learning -->|due Card + review updates| Frontend
+  CLI -.->|invokes generation| Extraction
+  CLI -.->|creates Card + repositories| Storage
+  CLI -.->|requests scheduling| Learning
+  CLI -.->|starts server| Frontend
 
   classDef cli fill:#dbeafe,color:#17251d,stroke:#2563eb,stroke-width:2px;
   classDef extraction fill:#dcfce7,color:#17251d,stroke:#16a34a,stroke-width:2px;
@@ -131,6 +137,7 @@ flowchart TD
   style StorageRegion fill:#fde68a,stroke:#b45309,stroke-width:4px,color:#78350f
   style LearningRegion fill:#e9d5ff,stroke:#7e22ce,stroke-width:4px,color:#581c87
   style FrontendRegion fill:#fecdd3,stroke:#be123c,stroke-width:4px,color:#881337
+  style PackagePipeline fill:transparent,stroke:#64748b,stroke-width:2px,stroke-dasharray:5 5
 ```
 
 Contract ownership is:
