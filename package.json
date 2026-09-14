@@ -8,11 +8,13 @@
     "build:packages": "npm run build --workspace @flashlearn/extraction && npm run build --workspace @flashlearn/frontend && npm run build --workspace @flashlearn/learning && npm run build --workspace @flashlearn/storage",
     "check": "npm run boundaries && npm run typecheck && npm test",
     "boundaries": "node scripts/check-boundaries.mjs",
+    "prepare": "husky",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",
+    "husky": "^9.1.7",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },

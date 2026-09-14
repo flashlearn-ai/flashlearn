@@ -1,0 +1,2 @@
+npm run boundaries
+git diff --cached --check
