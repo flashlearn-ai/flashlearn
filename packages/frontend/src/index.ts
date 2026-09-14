@@ -5,7 +5,98 @@ import type { FrontendServices } from "./workstream.js";
 export { FrontendService, MockFrontendServices } from "./workstream.js";
 export type { FrontendServices, FrontendWorkstream } from "./workstream.js";
 
-const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>FlashLearn</title><style>body{font:18px system-ui;max-width:42rem;margin:12vh auto;padding:1rem;background:#f4f1e8;color:#17251d}button{font:inherit;padding:.6rem 1rem}small{color:#59665e}</style></head><body><main><small id="source"></small><h1 id="question">Loading...</h1><p id="answer" hidden></p><button id="reveal">Reveal answer</button></main><script>let card;async function next(){card=await fetch('/api/cards/next').then(r=>r.json());question.textContent=card.question||card.error;source.textContent=card.source?card.source.path+' @ '+card.source.sha.slice(0,7):''}reveal.onclick=async()=>{card=await fetch('/api/cards/'+card.id).then(r=>r.json());answer.textContent=card.answer;answer.hidden=false;reveal.hidden=true};next()</script></body></html>`;
+const PAGE = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>FlashLearn</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#17251d;background:#f4f1e8}
+    body{max-width:42rem;margin:8vh auto;padding:1rem}
+    main{background:#fff;border:1px solid #d9d1c2;border-radius:1rem;padding:2rem;box-shadow:0 .5rem 2rem #17251d14}
+    h1{font-size:clamp(1.6rem,5vw,2.4rem);line-height:1.2}
+    button{font:inherit;padding:.65rem 1rem;border:1px solid #17251d;border-radius:.5rem;background:#17251d;color:#fff;cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.4}
+    #answer{padding:1rem;border-left:.3rem solid #8b795e;background:#f4f1e8}
+    #source,#position{display:block;color:#59665e;overflow-wrap:anywhere}
+    #navigation{display:flex;justify-content:space-between;gap:1rem;margin-top:1.5rem}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+  <main>
+    <small id="position" aria-live="polite">Loading cards...</small>
+    <h1 id="question"></h1>
+    <p id="answer" hidden></p>
+    <button id="reveal" type="button" hidden>Reveal answer</button>
+    <small id="source"></small>
+    <div id="navigation" hidden>
+      <button id="previous" type="button">Previous</button>
+      <button id="next" type="button">Next</button>
+    </div>
+  </main>
+  <script>
+    const position = document.querySelector('#position');
+    const question = document.querySelector('#question');
+    const answer = document.querySelector('#answer');
+    const source = document.querySelector('#source');
+    const reveal = document.querySelector('#reveal');
+    const navigation = document.querySelector('#navigation');
+    const previous = document.querySelector('#previous');
+    const next = document.querySelector('#next');
+    let cards = [];
+    let currentIndex = 0;
+
+    function renderCard() {
+      const card = cards[currentIndex];
+      position.textContent = 'Card ' + (currentIndex + 1) + ' of ' + cards.length;
+      question.textContent = card.question;
+      source.textContent = 'Source: ' + card.source.path + ' @ ' + card.source.sha;
+      answer.textContent = card.answer;
+      answer.hidden = true;
+      reveal.hidden = false;
+      navigation.hidden = false;
+      previous.disabled = currentIndex === 0;
+      next.disabled = currentIndex === cards.length - 1;
+    }
+
+    async function loadCards() {
+      try {
+        const response = await fetch('/api/cards');
+        if (!response.ok) throw new Error('Unable to load cards');
+        cards = await response.json();
+        if (cards.length === 0) {
+          position.textContent = 'No cards available';
+          return;
+        }
+        renderCard();
+      } catch (error) {
+        position.textContent = error instanceof Error ? error.message : 'Unable to load cards';
+      }
+    }
+
+    reveal.addEventListener('click', () => {
+      answer.hidden = false;
+      reveal.hidden = true;
+    });
+    previous.addEventListener('click', () => {
+      if (currentIndex > 0) {
+        currentIndex -= 1;
+        renderCard();
+      }
+    });
+    next.addEventListener('click', () => {
+      if (currentIndex < cards.length - 1) {
+        currentIndex += 1;
+        renderCard();
+      }
+    });
+
+    loadCards();
+  </script>
+</body>
+</html>`;
 
 function json(response: import("node:http").ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { "content-type": "application/json" });

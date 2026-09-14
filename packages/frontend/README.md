@@ -14,3 +14,9 @@ Fill in `FrontendService` in `src/workstream.ts` and build against injected `Fro
 | `submitReview(cardId, result)` | Submit a locked review result and return updated `ReviewState`. |
 
 `FrontendServices` is an injected consumer port, not frontend-owned business logic. Do not access JSON storage or implement scheduling here.
+
+## Demo Study Flow
+
+The browser page uses `GET /api/cards` as an ordered deck and keeps navigation state in the browser. It shows one question with its source path and Git SHA, reveals the answer on demand, and resets the answer when moving between cards.
+
+The baseline review endpoints and service methods remain available for future learning-engine integration, but the demo page does not submit review results or use due-card selection.
