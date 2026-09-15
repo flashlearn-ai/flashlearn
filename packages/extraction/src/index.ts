@@ -4,6 +4,7 @@ export { IGNORED_DIRECTORIES, SOURCE_EXTENSIONS, type QuestionExtractor } from "
 export {
   CompositeExtractor,
   ExportSignatureExtractor,
+  GoDocExtractor,
   JsDocExtractor,
   MarkdownExtractor,
 } from "./extractors.js";

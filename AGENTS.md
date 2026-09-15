@@ -121,7 +121,8 @@ Contract changes require coordinated review because all five workstreams may dep
 ### Extraction
 
 - `QuestionExtractor` is the extension point for an AI-backed generator.
-- `AnnotationExtractor` is only the deterministic baseline.
+- `MarkdownExtractor`, `JsDocExtractor`, `GoDocExtractor`, and `ExportSignatureExtractor` are the deterministic baseline, combined by `CompositeExtractor` in `defaultExtractor()`.
+- Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`.
 - Ignore generated, dependency, Git, and FlashLearn state directories when traversing.
 - Return `GeneratedCard[]`; do not assign IDs, timestamps, or review metadata here.
 

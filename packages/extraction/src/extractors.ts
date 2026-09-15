@@ -67,6 +67,29 @@ function plainHeading(text: string): string {
     .trim();
 }
 
+type GoDeclaration = { kind: string; name: string };
+
+/** Go test files document the tests, not the package, so they are skipped. */
+function isGoSource(path: string): boolean {
+  const lower = path.toLowerCase();
+  return lower.endsWith(".go") && !lower.endsWith("_test.go");
+}
+
+/**
+ * Match an exported top-level Go declaration. Only capitalized identifiers are
+ * exported in Go, and methods with a receiver are skipped so cards describe the
+ * package surface rather than every method on every type.
+ */
+function goDeclaration(line: string): GoDeclaration | null {
+  const match = /^(func|type|const|var)\s+([A-Z][\w]*)/.exec(line);
+  if (!match?.[1] || !match[2]) return null;
+  return { kind: match[1], name: match[2] };
+}
+
+function goSubject(declaration: GoDeclaration): string {
+  return declaration.kind === "func" ? `${declaration.name}()` : declaration.name;
+}
+
 /**
  * Markdown headings become cards. The heading is the question subject and the
  * prose directly beneath it, up to the next heading, is the answer.
@@ -156,11 +179,50 @@ export class JsDocExtractor implements QuestionExtractor {
 }
 
 /**
+ * Exported Go declarations with a preceding doc comment become cards. Go doc
+ * comments are consecutive `//` lines immediately above the declaration and
+ * conventionally open with the identifier name.
+ */
+export class GoDocExtractor implements QuestionExtractor {
+  async extract(input: ExtractInput): Promise<GeneratedCard[]> {
+    if (!isGoSource(input.path)) return [];
+
+    const cards: GeneratedCard[] = [];
+    const lines = input.content.split(/\r?\n/);
+    let comment: string[] = [];
+
+    for (const line of lines) {
+      const commentMatch = /^\s*\/\/\s?(.*)$/.exec(line);
+      if (commentMatch) {
+        comment.push((commentMatch[1] ?? "").trim());
+        continue;
+      }
+
+      const declaration = goDeclaration(line);
+      if (declaration && comment.length > 0) {
+        const answer = normalizeAnswer(comment.join(" "));
+        if (answer.length > 0) {
+          cards.push({
+            question: `What does \`${goSubject(declaration)}\` do?`,
+            answer,
+            source: { path: input.path, sha: input.sha },
+          });
+        }
+      }
+      comment = [];
+    }
+
+    return cards;
+  }
+}
+
+/**
  * Exported declarations without a doc comment still describe the shape of the
  * codebase, so they become locator cards that answer where a symbol lives.
  */
 export class ExportSignatureExtractor implements QuestionExtractor {
   async extract(input: ExtractInput): Promise<GeneratedCard[]> {
+    if (isGoSource(input.path)) return this.extractGo(input);
     if (!/\.(ts|tsx|js|jsx)$/i.test(input.path)) return [];
 
     const documented = new Set<string>();
@@ -183,6 +245,32 @@ export class ExportSignatureExtractor implements QuestionExtractor {
         answer: `\`${name}\` is an exported ${kind} defined in \`${input.path}\`.`,
         source: { path: input.path, sha: input.sha },
       });
+    }
+
+    return cards;
+  }
+
+  /** Exported Go declarations with no preceding doc comment become locator cards. */
+  private async extractGo(input: ExtractInput): Promise<GeneratedCard[]> {
+    const cards: GeneratedCard[] = [];
+    const lines = input.content.split(/\r?\n/);
+    let documented = false;
+
+    for (const line of lines) {
+      if (/^\s*\/\//.test(line)) {
+        documented = true;
+        continue;
+      }
+
+      const declaration = goDeclaration(line);
+      if (declaration && !documented) {
+        cards.push({
+          question: `Which file defines the \`${declaration.name}\` ${declaration.kind}?`,
+          answer: `\`${declaration.name}\` is an exported ${declaration.kind} defined in \`${input.path}\`.`,
+          source: { path: input.path, sha: input.sha },
+        });
+      }
+      documented = false;
     }
 
     return cards;
