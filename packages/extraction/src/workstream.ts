@@ -14,15 +14,30 @@ import {
   JsDocExtractor,
   MarkdownExtractor,
 } from "./extractors.js";
+import { EndpointExtractor, endpointConfigFromEnv } from "./endpoint.js";
+
+/** Bounded in-flight work per repository run. */
+const DEFAULT_CONCURRENCY = 8;
 
 /** Deterministic default: code declarations first, then Markdown prose. */
-export function defaultExtractor(): QuestionExtractor {
+export function deterministicExtractor(): QuestionExtractor {
   return new CompositeExtractor(
     new JsDocExtractor(),
     new GoDocExtractor(),
     new ExportSignatureExtractor(),
     new MarkdownExtractor(),
   );
+}
+
+/**
+ * Uses the configured endpoint for code files when one is set, keeping the
+ * deterministic Markdown extractor either way. Falls back to the fully
+ * deterministic baseline so runs work offline and without credentials.
+ */
+export function defaultExtractor(): QuestionExtractor {
+  const config = endpointConfigFromEnv();
+  if (!config) return deterministicExtractor();
+  return new CompositeExtractor(new EndpointExtractor(config), new MarkdownExtractor());
 }
 
 export type SourceDocument = {
@@ -51,11 +66,39 @@ function usableCards(cards: GeneratedCard[]): GeneratedCard[] {
 }
 
 /**
+ * Run a task per item with a bounded number in flight. Repository-wide
+ * generation would otherwise open one request per file against an endpoint.
+ */
+async function mapWithConcurrency<Item, Result>(
+  items: Item[],
+  limit: number,
+  task: (item: Item) => Promise<Result>,
+): Promise<Result[]> {
+  const results = new Array<Result>(items.length);
+  let next = 0;
+
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      const item = items[index];
+      if (item !== undefined) results[index] = await task(item);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
  * Manasa's workstream. Produces attributed `GeneratedCard[]` only — no IDs,
  * timestamps, or review metadata. The CLI assigns those downstream.
  */
 export class ExtractionService implements ExtractionWorkstream {
-  constructor(private readonly extractor: QuestionExtractor = defaultExtractor()) {}
+  constructor(
+    private readonly extractor: QuestionExtractor = defaultExtractor(),
+    private readonly concurrency: number = DEFAULT_CONCURRENCY,
+  ) {}
 
   async scanRepository(root: string): Promise<SourceDocument[]> {
     const commitSha = await headSha(root);
@@ -80,7 +123,9 @@ export class ExtractionService implements ExtractionWorkstream {
 
   async generateFromRepository(root: string): Promise<GeneratedCard[]> {
     const documents = await this.scanRepository(root);
-    const generated = await Promise.all(documents.map(async (document) => this.generateFromDocument(document)));
+    const generated = await mapWithConcurrency(documents, this.concurrency, async (document) =>
+      this.generateFromDocument(document),
+    );
     return generated.flat();
   }
 }

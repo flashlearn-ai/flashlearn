@@ -70,3 +70,28 @@ test("generateFromRepository honors an injected extractor", async (t) => {
 
   assert.deepEqual(cards.map((card) => card.question), ["Summarize a.ts?", "Summarize notes.md?"]);
 });
+
+test("generateFromRepository bounds how many documents are in flight", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "flashlearn-concurrency-"));
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  for (let index = 0; index < 12; index += 1) {
+    await writeFile(join(root, `file${index}.ts`), `/** Doc ${index}. */\nexport function f${index}() {}\n`);
+  }
+
+  let inFlight = 0;
+  let peak = 0;
+  const counting: QuestionExtractor = {
+    async extract(input): Promise<GeneratedCard[]> {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return [{ question: `Q ${input.path}`, answer: "A", source: { path: input.path, sha: input.sha } }];
+    },
+  };
+
+  const cards = await new ExtractionService(counting, 3).generateFromRepository(root);
+
+  assert.equal(cards.length, 12, "every document is still processed");
+  assert.ok(peak <= 3, `expected at most 3 concurrent, saw ${peak}`);
+});
