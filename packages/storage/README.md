@@ -2,7 +2,7 @@
 
 **Owner:** Sagar
 
-Fill in `StorageService`, `StarterCardRepository`, and `StarterReviewRepository` in `src/workstream.ts`. They currently return empty data or a valid default review state, allowing consumers to run before disk persistence is finished.
+`StorageService` is the production entrypoint for project initialization and repository creation. It returns JSON-backed implementations of the locked `CardRepository` and `ReviewRepository` contracts. The lower-level `initializeStore`, `JsonCardRepository`, and `JsonReviewRepository` exports remain available for existing integrations.
 
 | Method | Expected behavior |
 | --- | --- |
@@ -13,3 +13,12 @@ Fill in `StorageService`, `StarterCardRepository`, and `StarterReviewRepository`
 | `ReviewRepository.get/save` | Return a valid default state when absent and persist review state by card ID. |
 
 Preserve atomic writes. Do not add scheduling or extraction decisions to this package.
+
+Storage owns the contents of `<projectRoot>/.flashlearn/`:
+
+```text
+.flashlearn/
+  cards.json     # Card[]
+  review.json    # ReviewState values keyed by card ID
+  settings.json  # Local settings and schema version
+```

@@ -131,6 +131,8 @@ Contract changes require coordinated review because all five workstreams may dep
 - `.flashlearn/review.json` is an object keyed by card ID.
 - `.flashlearn/settings.json` contains local configuration and schema version data.
 - CLI resolves and passes the project root; storage owns creating and persisting `.flashlearn/` contents.
+- `StorageService` is the production lifecycle and repository factory; do not add parallel starter repository implementations.
+- Keep JSON persistence internals in `src/json.ts` and export public storage APIs through `src/index.ts`.
 - Preserve atomic writes and idempotent initialization.
 - Storage must not contain scheduling, extraction, or presentation decisions.
 

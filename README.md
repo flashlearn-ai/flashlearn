@@ -35,8 +35,8 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Owner:** Sagar
    - **Features:** Card persistence, retrieval APIs, local JSON storage format, and repository abstractions
    - **Dependencies:** Shared contracts only
-   - **Current:** Starter JSON repositories demonstrate the locked persistence interfaces
-   - **Next:** Complete and validate the storage package implementation
+   - **Current:** `StorageService` initializes `.flashlearn/` and creates production JSON-backed card and review repositories
+   - **Next:** Add schema validation and migrations as persisted formats evolve
 
 4. 🟣 **Learning engine** (`packages/learning`)
    - **Status:** ✅ Done
