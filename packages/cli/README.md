@@ -21,9 +21,11 @@ npm run dev --workspace @flashlearn/cli -- generate .
 npm run dev --workspace @flashlearn/cli -- start . --port 4173
 ```
 
+The local server binds to `localhost` by default. Wildcard addresses such as `0.0.0.0` and `::` are rejected to avoid exposing the learning server beyond the local machine.
+
 Tests use in-memory repositories and recording package fakes from `test/fakes/harness.ts`. `contracts.test.ts` validates each package handshake, while `pipeline.test.ts` exercises extraction through frontend service composition without disk or network access.
 
-Successful commands guide first-time users through the setup flow:
+Successful commands guide first-time users through the setup flow. A blank line separates the result from a shell-comment explanation and the copyable next action, so both lines can be pasted safely:
 
 ```text
 init -> generate -> start -> open the local URL

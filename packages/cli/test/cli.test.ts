@@ -37,12 +37,23 @@ test("shows help with a successful exit code", async () => {
 test("parses start directory, host, and port", async () => {
   const cli = new RecordingCli();
   const output = capture();
-  assert.equal(await runCli(["start", "demo", "--host", "0.0.0.0", "--port", "8080"], cli, output.io), 0);
-  assert.deepEqual(cli.calls, [{ method: "start", root: "/project/demo", options: { host: "0.0.0.0", port: 8080 } }]);
+  assert.equal(await runCli(["start", "demo", "--host", "localhost", "--port", "8080"], cli, output.io), 0);
+  assert.deepEqual(cli.calls, [{ method: "start", root: "/project/demo", options: { host: "localhost", port: 8080 } }]);
   assert.deepEqual(output.stdout, [
-    "FlashLearn running at http://0.0.0.0:8080",
-    "Next: open http://0.0.0.0:8080 in your browser",
+    "FlashLearn running at http://localhost:8080",
+    "",
+    "Next:",
+    "  # Open this URL in your browser to begin reviewing",
+    "  http://localhost:8080",
   ]);
+});
+
+test("rejects wildcard server addresses", async () => {
+  for (const host of ["0.0.0.0", "::"]) {
+    const output = capture();
+    assert.equal(await runCli(["start", "--host", host], new RecordingCli(), output.io), 2);
+    assert.match(output.stderr[0] ?? "", /wildcard address/);
+  }
 });
 
 test("guides first-time users from init to generate", async () => {
@@ -50,7 +61,10 @@ test("guides first-time users from init to generate", async () => {
   assert.equal(await runCli(["init", "new repo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
     "Initialized /project/new repo/.flashlearn",
-    "Next: flashlearn generate '/project/new repo'",
+    "",
+    "Next:",
+    "  # Generate study cards from this repository",
+    "  flashlearn generate '/project/new repo'",
   ]);
 });
 
@@ -59,7 +73,10 @@ test("guides users from generation to start", async () => {
   assert.equal(await runCli(["generate", "demo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
     "Generated and stored 0 cards",
-    "Next: flashlearn start '/project/demo'",
+    "",
+    "Next:",
+    "  # Start the local learning experience",
+    "  flashlearn start '/project/demo'",
   ]);
 });
 
