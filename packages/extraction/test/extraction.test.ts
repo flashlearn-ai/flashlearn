@@ -4,28 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { GeneratedCard } from "../../../contracts/index.js";
-import { AnnotationExtractor, ExtractionService, type QuestionExtractor } from "../src/index.js";
+import { ExtractionService, type QuestionExtractor } from "../src/index.js";
 
 async function fixtureRepository(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "flashlearn-extraction-"));
-  await writeFile(join(root, "a.ts"), "// Q: What is A?\n// A: A value.\n");
-  await writeFile(join(root, "notes.md"), "<!-- Q: What is B? -->\n<!-- A: B value. -->\n");
-  await writeFile(join(root, "ignored.txt"), "// Q: Skipped?\n// A: Yes.\n");
+  await writeFile(join(root, "a.ts"), "/** Adds numbers. */\nexport function add() {}\n");
+  await writeFile(join(root, "notes.md"), "# Overview\nExplains the project.\n");
+  await writeFile(join(root, "ignored.txt"), "# Skipped\nNot a supported extension.\n");
   await mkdir(join(root, "node_modules", "pkg"), { recursive: true });
-  await writeFile(join(root, "node_modules", "pkg", "dep.ts"), "// Q: Dep?\n// A: No.\n");
+  await writeFile(join(root, "node_modules", "pkg", "dep.ts"), "/** Dep. */\nexport function dep() {}\n");
   return root;
 }
-
-test("extracts adjacent question and answer annotations", async () => {
-  const cards = await new AnnotationExtractor().extract({
-    path: "src/a.ts",
-    sha: "abc",
-    content: "// Q: What is A?\n// A: A value.\n",
-  });
-  assert.deepEqual(cards, [
-    { question: "What is A?", answer: "A value.", source: { path: "src/a.ts", sha: "abc" } },
-  ]);
-});
 
 test("scanRepository returns sorted supported files and skips ignored directories", async (t) => {
   const root = await fixtureRepository();
@@ -40,15 +29,15 @@ test("scanRepository returns sorted supported files and skips ignored directorie
   }
 });
 
-test("generateFromDocument attributes cards and drops empty or duplicate entries", async () => {
+test("generateFromDocument attributes cards and drops duplicate entries", async () => {
   const cards = await new ExtractionService().generateFromDocument({
-    path: "src/a.ts",
+    path: "docs/guide.md",
     sha: "abc123",
-    content: "// Q: What is A?\n// A: A value.\n\n// Q: What is A?\n// A: A value.\n",
+    content: "# Setup\nRun the CLI.\n\n# Setup\nRun the CLI.\n",
   });
 
-  assert.equal(cards.length, 1);
-  assert.deepEqual(cards[0]?.source, { path: "src/a.ts", sha: "abc123" });
+  assert.equal(cards.length, 1, "identical questions from one file collapse");
+  assert.deepEqual(cards[0]?.source, { path: "docs/guide.md", sha: "abc123" });
 });
 
 test("generateFromRepository combines cards across documents", async (t) => {
@@ -57,7 +46,10 @@ test("generateFromRepository combines cards across documents", async (t) => {
 
   const cards = await new ExtractionService().generateFromRepository(root);
 
-  assert.deepEqual(cards.map((card) => card.question).sort(), ["What is A?", "What is B?"]);
+  assert.deepEqual(cards.map((card) => card.question).sort(), [
+    'What does "Overview" cover?',
+    "What does `add()` do?",
+  ]);
   for (const card of cards) {
     assert.ok(card.source.path.length > 0 && card.source.sha.length > 0);
     assert.equal(Object.keys(card).sort().join(","), "answer,question,source");

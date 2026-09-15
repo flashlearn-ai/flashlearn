@@ -59,8 +59,8 @@ export class MarkdownExtractor implements QuestionExtractor {
         heading = plainHeading(match[2]);
         continue;
       }
-      // Skip tables, list markers, and annotation lines already owned by AnnotationExtractor.
-      if (heading && line.trim().length > 0 && !/^\s*(\||<!--\s*[QA]:)/.test(line)) {
+      // Skip table rows; prose and list items become the answer.
+      if (heading && line.trim().length > 0 && !/^\s*\|/.test(line)) {
         body.push(line.trim());
       }
     }
