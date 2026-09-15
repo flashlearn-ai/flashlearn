@@ -23,20 +23,20 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Next:** Integrate completed owner packages as they merge
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
-   - **Status:** 🚧 In Progress
+   - **Status:** ✅ Done
    - **Owner:** Manasa
-   - **Features:** Repository ingestion and scanning, knowledge extraction, question and answer generation, and source attribution (`path`, `sha`)
+   - **Features:** Repository scanning, Markdown headings, JSDoc, Go doc comments, undocumented export signatures, answer cleanup, and source attribution (`path`, `sha`)
    - **Dependencies:** Shared contracts only
-   - **Current:** Starter repository scanning and annotation extraction provide a development baseline
-   - **Next:** Complete repository ingestion and AI-backed question and answer generation
+   - **Current:** The deterministic extraction pipeline is implemented and tested across Go, JavaScript, JSX, Markdown, TypeScript, and TSX sources
+   - **Next:** Add agentic AI generation as a separate capability when its local-first model and provider contract are defined
 
 3. 🟠 **Storage / repositories** (`packages/storage`)
-   - **Status:** 🚧 In Progress
+   - **Status:** ✅ Done
    - **Owner:** Sagar
-   - **Features:** Card persistence, retrieval APIs, local JSON storage format, and repository abstractions
+   - **Features:** Card persistence, review-state persistence, schema validation, atomic JSON writes, path helpers, and repository abstractions
    - **Dependencies:** Shared contracts only
-   - **Current:** Starter JSON repositories demonstrate the locked persistence interfaces
-   - **Next:** Complete and validate the storage package implementation
+   - **Current:** Production `StorageService`, card repositories, and review repositories implement the locked interfaces under `.flashlearn/`
+   - **Next:** Add migrations when persisted schemas evolve and broaden malformed-data and isolation tests
 
 4. 🟣 **Learning engine** (`packages/learning`)
    - **Status:** ✅ Done
