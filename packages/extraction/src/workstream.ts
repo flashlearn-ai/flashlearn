@@ -1,4 +1,13 @@
+import { readFile } from "node:fs/promises";
 import type { GeneratedCard } from "../../../contracts/index.js";
+import {
+  AnnotationExtractor,
+  fileSha,
+  headSha,
+  sourceFiles,
+  toRepositoryPath,
+  type QuestionExtractor,
+} from "./extractor.js";
 
 export type SourceDocument = {
   path: string;
@@ -13,20 +22,49 @@ export interface ExtractionWorkstream {
   generateFromRepository(root: string): Promise<GeneratedCard[]>;
 }
 
-/** Manasa: fill in repository scanning and question generation here. */
+/** Skip empty or whitespace-only questions and answers, and drop duplicates. */
+function usableCards(cards: GeneratedCard[]): GeneratedCard[] {
+  const seen = new Set<string>();
+  return cards.filter((card) => {
+    if (card.question.trim().length === 0 || card.answer.trim().length === 0) return false;
+    const key = `${card.source.path}::${card.question.trim()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Manasa's workstream. Produces attributed `GeneratedCard[]` only — no IDs,
+ * timestamps, or review metadata. The CLI assigns those downstream.
+ */
 export class ExtractionService implements ExtractionWorkstream {
-  async scanRepository(_root: string): Promise<SourceDocument[]> {
-    // TODO(Manasa): read supported source files and attach path and Git SHA.
-    return [];
+  constructor(private readonly extractor: QuestionExtractor = new AnnotationExtractor()) {}
+
+  async scanRepository(root: string): Promise<SourceDocument[]> {
+    const commitSha = await headSha(root);
+    const files = await sourceFiles(root);
+    const documents = await Promise.all(
+      files.map(async (absolutePath) => {
+        const path = toRepositoryPath(root, absolutePath);
+        const [content, sha] = await Promise.all([
+          readFile(absolutePath, "utf8"),
+          fileSha(root, path, commitSha),
+        ]);
+        return { path, content, sha } satisfies SourceDocument;
+      }),
+    );
+    return documents.sort((left, right) => left.path.localeCompare(right.path));
   }
 
-  async generateFromDocument(_document: SourceDocument): Promise<GeneratedCard[]> {
-    // TODO(Manasa): generate questions and answers for one document.
-    return [];
+  async generateFromDocument(document: SourceDocument): Promise<GeneratedCard[]> {
+    const cards = await this.extractor.extract(document);
+    return usableCards(cards);
   }
 
-  async generateFromRepository(_root: string): Promise<GeneratedCard[]> {
-    // TODO(Manasa): scan, generate from each document, and combine results.
-    return [];
+  async generateFromRepository(root: string): Promise<GeneratedCard[]> {
+    const documents = await this.scanRepository(root);
+    const generated = await Promise.all(documents.map(async (document) => this.generateFromDocument(document)));
+    return generated.flat();
   }
 }
