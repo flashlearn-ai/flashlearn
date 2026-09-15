@@ -8,6 +8,12 @@ import {
   toRepositoryPath,
   type QuestionExtractor,
 } from "./extractor.js";
+import { CompositeExtractor, JsDocExtractor, MarkdownExtractor } from "./extractors.js";
+
+/** Deterministic default: annotations, Markdown headings, and JSDoc summaries. */
+export function defaultExtractor(): QuestionExtractor {
+  return new CompositeExtractor(new AnnotationExtractor(), new MarkdownExtractor(), new JsDocExtractor());
+}
 
 export type SourceDocument = {
   path: string;
@@ -39,7 +45,7 @@ function usableCards(cards: GeneratedCard[]): GeneratedCard[] {
  * timestamps, or review metadata. The CLI assigns those downstream.
  */
 export class ExtractionService implements ExtractionWorkstream {
-  constructor(private readonly extractor: QuestionExtractor = new AnnotationExtractor()) {}
+  constructor(private readonly extractor: QuestionExtractor = defaultExtractor()) {}
 
   async scanRepository(root: string): Promise<SourceDocument[]> {
     const commitSha = await headSha(root);
