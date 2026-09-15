@@ -34,13 +34,15 @@ npm run check
 npm run build
 ```
 
-`npm run check` validates package boundaries, typechecks every workspace, and runs all tests.
+`npm run check` validates package boundaries, typechecks every workspace, runs the repository script tests, and runs all workspace tests.
+
+Scripts under `scripts/` are covered by `test/*.test.mjs` at the repository root, run through `npm run test:scripts`. Workspace tests stay inside their own package.
 
 Run the source CLI from the repository root with `npm run cli -- <command>`. The script builds sibling packages first and preserves the root working directory for default project resolution.
 
 GitHub CI exposes three independent statuses:
 
-- `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`.
+- `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`. It compares against the merge base, so unrelated packages that land on `main` after a branch is cut do not count against it. The job needs full history (`fetch-depth: 0`).
 - `CI / Validate` runs `npm run check`.
 - `CI / Build` runs the whole-project build and compiled CLI smoke tests.
 
