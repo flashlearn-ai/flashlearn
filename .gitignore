@@ -1,5 +1,19 @@
 node_modules/
 dist/
-.flashlearn/
 *.tsbuildinfo
 knowledge/
+
+# Ingested repository content and generated cards must never be committed.
+.flashlearn/
+**/.flashlearn/
+
+# Secrets and credentials.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials.*
