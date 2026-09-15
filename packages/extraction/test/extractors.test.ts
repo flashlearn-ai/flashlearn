@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CompositeExtractor, JsDocExtractor, MarkdownExtractor } from "../src/index.js";
+import { CompositeExtractor, ExportSignatureExtractor, JsDocExtractor, MarkdownExtractor } from "../src/index.js";
 
 const source = { path: "docs/guide.md", sha: "sha1" };
 
@@ -73,4 +73,60 @@ test("CompositeExtractor concatenates cards from every extractor", async () => {
   assert.equal(typescript.length, 1);
   assert.equal(markdown[0]?.question, 'What does "Title" cover?');
   assert.equal(typescript[0]?.question, "What does `go()` do?");
+});
+
+test("MarkdownExtractor keeps list items on separate lines", async () => {
+  const cards = await new MarkdownExtractor().extract({
+    ...source,
+    content: "# Tooling\n- Node.js 22 or newer.\n- TypeScript with ESM.\n- npm workspaces.\n",
+  });
+
+  assert.equal(cards[0]?.answer, "- Node.js 22 or newer.\n- TypeScript with ESM.\n- npm workspaces.");
+});
+
+test("MarkdownExtractor joins wrapped prose lines into one paragraph", async () => {
+  const cards = await new MarkdownExtractor().extract({
+    ...source,
+    content: "# Intro\nThis sentence wraps\nacross two lines.\n",
+  });
+
+  assert.equal(cards[0]?.answer, "This sentence wraps across two lines.");
+});
+
+test("MarkdownExtractor skips contributor process documents", async () => {
+  const markdown = new MarkdownExtractor();
+  const content = "# Ownership\nEdit only your package.\n";
+
+  assert.deepEqual(await markdown.extract({ path: "AGENTS.md", sha: "s", content }), []);
+  assert.deepEqual(await markdown.extract({ path: "CONTRIBUTING.md", sha: "s", content }), []);
+  assert.equal((await markdown.extract({ path: "README.md", sha: "s", content })).length, 1);
+});
+
+test("long answers truncate on a sentence boundary rather than mid-word", async () => {
+  const sentence = "This sentence is padded so the section runs past the answer cap. ";
+  const cards = await new MarkdownExtractor().extract({
+    ...source,
+    content: `# Long\n${sentence.repeat(20)}\n`,
+  });
+
+  const answer = cards[0]?.answer ?? "";
+  assert.ok(answer.length <= 700, "answer stays within the cap");
+  assert.ok(answer.endsWith("."), `expected a sentence boundary, got: ${answer.slice(-40)}`);
+  assert.ok(!answer.includes("…"), "no mid-word ellipsis when a sentence boundary exists");
+});
+
+test("ExportSignatureExtractor locates undocumented exports only", async () => {
+  const cards = await new ExportSignatureExtractor().extract({
+    path: "packages/storage/src/repo.ts",
+    sha: "sha3",
+    content:
+      "/** Documented. */\nexport class Documented {}\n\nexport interface CardRepository {}\nexport function bare() {}\n",
+  });
+
+  assert.deepEqual(cards.map((card) => card.question), [
+    "Which file defines the `CardRepository` interface?",
+    "Which file defines the `bare` function?",
+  ]);
+  assert.match(cards[0]?.answer ?? "", /packages\/storage\/src\/repo\.ts/);
+  assert.deepEqual(cards[1]?.source, { path: "packages/storage/src/repo.ts", sha: "sha3" });
 });

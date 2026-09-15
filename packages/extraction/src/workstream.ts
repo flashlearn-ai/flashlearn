@@ -7,11 +7,11 @@ import {
   toRepositoryPath,
   type QuestionExtractor,
 } from "./extractor.js";
-import { CompositeExtractor, JsDocExtractor, MarkdownExtractor } from "./extractors.js";
+import { CompositeExtractor, ExportSignatureExtractor, JsDocExtractor, MarkdownExtractor } from "./extractors.js";
 
-/** Deterministic default: Markdown headings and JSDoc summaries. */
+/** Deterministic default: code declarations first, then Markdown prose. */
 export function defaultExtractor(): QuestionExtractor {
-  return new CompositeExtractor(new MarkdownExtractor(), new JsDocExtractor());
+  return new CompositeExtractor(new JsDocExtractor(), new ExportSignatureExtractor(), new MarkdownExtractor());
 }
 
 export type SourceDocument = {

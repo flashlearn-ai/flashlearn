@@ -3,13 +3,60 @@ import type { QuestionExtractor } from "./extractor.js";
 
 type ExtractInput = { path: string; content: string; sha: string };
 
-const MAX_ANSWER_LENGTH = 400;
+const MAX_ANSWER_LENGTH = 700;
 
-/** Collapse whitespace and clamp long prose so cards stay readable in the UI. */
+/**
+ * Contributor process docs describe how to work on the repository rather than
+ * what the code does, so they are not useful onboarding material.
+ */
+const META_DOCUMENTS = new Set([
+  "agents.md",
+  "changelog.md",
+  "code_of_conduct.md",
+  "contributing.md",
+  "license.md",
+  "security.md",
+]);
+
+function isMetaDocument(path: string): boolean {
+  const name = path.toLowerCase().split("/").pop() ?? "";
+  return META_DOCUMENTS.has(name) || name.startsWith("claude");
+}
+
+/** Truncate on a sentence boundary when possible, falling back to a word boundary. */
+function clamp(text: string): string {
+  if (text.length <= MAX_ANSWER_LENGTH) return text;
+
+  const window = text.slice(0, MAX_ANSWER_LENGTH);
+  const sentenceEnd = Math.max(window.lastIndexOf(". "), window.lastIndexOf("! "), window.lastIndexOf("? "));
+  if (sentenceEnd > MAX_ANSWER_LENGTH * 0.5) return window.slice(0, sentenceEnd + 1);
+
+  const wordEnd = window.lastIndexOf(" ");
+  return `${(wordEnd > 0 ? window.slice(0, wordEnd) : window).trimEnd()}…`;
+}
+
+/** Collapse whitespace within a single prose paragraph. */
 function normalizeAnswer(text: string): string {
-  const collapsed = text.replace(/\s+/g, " ").trim();
-  if (collapsed.length <= MAX_ANSWER_LENGTH) return collapsed;
-  return `${collapsed.slice(0, MAX_ANSWER_LENGTH - 1).trimEnd()}…`;
+  return clamp(text.replace(/\s+/g, " ").trim());
+}
+
+/**
+ * Join Markdown body lines, keeping list items on their own lines so bullets do
+ * not flatten into a single run-on sentence.
+ */
+function joinBody(lines: string[]): string {
+  const parts: string[] = [];
+  for (const line of lines) {
+    const isItem = /^\s*(?:[-*+]|\d+\.)\s+/.test(line);
+    if (isItem || parts.length === 0) {
+      parts.push(line.trim());
+    } else if (/^\s*(?:[-*+]|\d+\.)\s+/.test(parts[parts.length - 1] ?? "")) {
+      parts.push(line.trim());
+    } else {
+      parts[parts.length - 1] = `${parts[parts.length - 1]} ${line.trim()}`;
+    }
+  }
+  return clamp(parts.map((part) => part.replace(/\s+/g, " ").trim()).join("\n"));
 }
 
 /** Strip inline Markdown emphasis, links, and code ticks from heading text. */
@@ -27,6 +74,7 @@ function plainHeading(text: string): string {
 export class MarkdownExtractor implements QuestionExtractor {
   async extract(input: ExtractInput): Promise<GeneratedCard[]> {
     if (!input.path.toLowerCase().endsWith(".md")) return [];
+    if (isMetaDocument(input.path)) return [];
 
     const cards: GeneratedCard[] = [];
     const lines = input.content.split(/\r?\n/);
@@ -35,7 +83,7 @@ export class MarkdownExtractor implements QuestionExtractor {
     let inFence = false;
 
     const flush = (): void => {
-      const answer = normalizeAnswer(body.join(" "));
+      const answer = joinBody(body);
       if (heading && answer.length > 0) {
         cards.push({
           question: `What does "${heading}" cover?`,
@@ -71,8 +119,8 @@ export class MarkdownExtractor implements QuestionExtractor {
 }
 
 /**
- * Exported functions and classes with a preceding JSDoc block become cards.
- * The first sentence of the doc comment is the answer.
+ * Exported declarations with a preceding JSDoc block become cards. The doc
+ * summary is the answer, with tag lines excluded.
  */
 export class JsDocExtractor implements QuestionExtractor {
   async extract(input: ExtractInput): Promise<GeneratedCard[]> {
@@ -80,7 +128,7 @@ export class JsDocExtractor implements QuestionExtractor {
 
     const cards: GeneratedCard[] = [];
     const pattern =
-      /\/\*\*([\s\S]*?)\*\/\s*export\s+(?:default\s+)?(?:async\s+)?(function|class|const|interface|type)\s+([A-Za-z_$][\w$]*)/g;
+      /\/\*\*([\s\S]*?)\*\/\s*export\s+(?:default\s+)?(?:abstract\s+)?(?:async\s+)?(function|class|const|let|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g;
 
     for (const match of input.content.matchAll(pattern)) {
       const [, rawDoc, kind, name] = match;
@@ -99,6 +147,40 @@ export class JsDocExtractor implements QuestionExtractor {
       cards.push({
         question: `What does \`${subject}\` do?`,
         answer,
+        source: { path: input.path, sha: input.sha },
+      });
+    }
+
+    return cards;
+  }
+}
+
+/**
+ * Exported declarations without a doc comment still describe the shape of the
+ * codebase, so they become locator cards that answer where a symbol lives.
+ */
+export class ExportSignatureExtractor implements QuestionExtractor {
+  async extract(input: ExtractInput): Promise<GeneratedCard[]> {
+    if (!/\.(ts|tsx|js|jsx)$/i.test(input.path)) return [];
+
+    const documented = new Set<string>();
+    const documentedPattern =
+      /\/\*\*[\s\S]*?\*\/\s*export\s+(?:default\s+)?(?:abstract\s+)?(?:async\s+)?(?:function|class|const|let|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g;
+    for (const match of input.content.matchAll(documentedPattern)) {
+      if (match[1]) documented.add(match[1]);
+    }
+
+    const cards: GeneratedCard[] = [];
+    const pattern =
+      /^export\s+(?:default\s+)?(?:abstract\s+)?(?:async\s+)?(function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm;
+
+    for (const match of input.content.matchAll(pattern)) {
+      const [, kind, name] = match;
+      if (!kind || !name || documented.has(name)) continue;
+
+      cards.push({
+        question: `Which file defines the \`${name}\` ${kind}?`,
+        answer: `\`${name}\` is an exported ${kind} defined in \`${input.path}\`.`,
         source: { path: input.path, sha: input.sha },
       });
     }
