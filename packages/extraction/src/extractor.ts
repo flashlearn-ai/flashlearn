@@ -6,8 +6,19 @@ import type { GeneratedCard } from "../../../contracts/index.js";
 
 const execFileAsync = promisify(execFile);
 
-export const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".md", ".ts", ".tsx"]);
-export const IGNORED_DIRECTORIES = new Set([".git", ".flashlearn", "dist", "node_modules", "coverage", "build"]);
+export const SOURCE_EXTENSIONS = new Set([".go", ".js", ".jsx", ".md", ".ts", ".tsx"]);
+export const IGNORED_DIRECTORIES = new Set([
+  ".git",
+  ".flashlearn",
+  "_output",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "testdata",
+  "third_party",
+  "vendor",
+]);
 
 /** Extension seam: swap the deterministic baseline for an AI-backed generator. */
 export interface QuestionExtractor {

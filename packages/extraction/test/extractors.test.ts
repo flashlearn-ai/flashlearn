@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CompositeExtractor, ExportSignatureExtractor, JsDocExtractor, MarkdownExtractor } from "../src/index.js";
+import { CompositeExtractor, ExportSignatureExtractor, GoDocExtractor, JsDocExtractor, MarkdownExtractor } from "../src/index.js";
 
 const source = { path: "docs/guide.md", sha: "sha1" };
 
@@ -129,4 +129,60 @@ test("ExportSignatureExtractor locates undocumented exports only", async () => {
   ]);
   assert.match(cards[0]?.answer ?? "", /packages\/storage\/src\/repo\.ts/);
   assert.deepEqual(cards[1]?.source, { path: "packages/storage/src/repo.ts", sha: "sha3" });
+});
+
+const goSource = { path: "pkg/controller/reconcile.go", sha: "sha4" };
+
+test("GoDocExtractor documents exported declarations from doc comments", async () => {
+  const cards = await new GoDocExtractor().extract({
+    ...goSource,
+    content:
+      "// Reconcile drives the cluster toward the desired state.\nfunc Reconcile(ctx context.Context) error {\n\treturn nil\n}\n\n// Options configures the controller.\ntype Options struct{}\n",
+  });
+
+  assert.deepEqual(cards.map((card) => card.question), [
+    "What does `Reconcile()` do?",
+    "What does `Options` do?",
+  ]);
+  assert.equal(cards[0]?.answer, "Reconcile drives the cluster toward the desired state.");
+  assert.deepEqual(cards[1]?.source, goSource);
+});
+
+test("GoDocExtractor joins multi-line doc comments into one paragraph", async () => {
+  const cards = await new GoDocExtractor().extract({
+    ...goSource,
+    content: "// Sync copies state from the informer cache\n// into the work queue.\nfunc Sync() {}\n",
+  });
+
+  assert.equal(cards[0]?.answer, "Sync copies state from the informer cache into the work queue.");
+});
+
+test("GoDocExtractor ignores unexported declarations and undocumented exports", async () => {
+  const cards = await new GoDocExtractor().extract({
+    ...goSource,
+    content: "// reconcile is internal.\nfunc reconcile() {}\n\nfunc Exported() {}\n",
+  });
+
+  assert.deepEqual(cards, []);
+});
+
+test("GoDocExtractor skips Go test files and non-Go sources", async () => {
+  const extractor = new GoDocExtractor();
+  const content = "// Reconcile does a thing.\nfunc Reconcile() {}\n";
+
+  assert.deepEqual(await extractor.extract({ path: "pkg/a_test.go", sha: "s", content }), []);
+  assert.deepEqual(await extractor.extract({ path: "src/a.ts", sha: "s", content }), []);
+});
+
+test("ExportSignatureExtractor covers undocumented Go exports without duplicating GoDocExtractor", async () => {
+  const content = "// Documented explains itself.\nfunc Documented() {}\n\ntype CacheStore struct{}\n";
+  const input = { ...goSource, content };
+
+  const locators = await new ExportSignatureExtractor().extract(input);
+  const docs = await new GoDocExtractor().extract(input);
+
+  assert.deepEqual(locators.map((card) => card.question), [
+    "Which file defines the `CacheStore` type?",
+  ]);
+  assert.deepEqual(docs.map((card) => card.question), ["What does `Documented()` do?"]);
 });
