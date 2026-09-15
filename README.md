@@ -39,12 +39,12 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Next:** Complete and validate the storage package implementation
 
 4. 🟣 **Learning engine** (`packages/learning`)
-   - **Status:** 🚧 In Progress
+   - **Status:** ✅ Done
    - **Owner:** Jenny
    - **Features:** Review scheduling, spaced-repetition logic, due-card selection, and easy/hard/correct/incorrect scoring
    - **Dependencies:** Shared contracts only
-   - **Current:** A baseline scheduler demonstrates review-state updates and due-card selection
-   - **Next:** Complete and validate the agreed spaced-repetition behavior
+   - **Current:** Deterministic review scheduling, scoring, and overdue-first due-card selection are implemented and tested
+   - **Next:** Connect the fake Teams review controls to the persisted scheduling flow
 
 5. 🔴 **Frontend / fake Teams** (`packages/frontend`)
    - **Status:** 🚧 In Progress
