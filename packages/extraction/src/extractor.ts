@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { extname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import type { GeneratedCard } from "../../../contracts/index.js";
@@ -12,24 +12,6 @@ export const IGNORED_DIRECTORIES = new Set([".git", ".flashlearn", "dist", "node
 /** Extension seam: swap the deterministic baseline for an AI-backed generator. */
 export interface QuestionExtractor {
   extract(input: { path: string; content: string; sha: string }): Promise<GeneratedCard[]>;
-}
-
-/** Deterministic baseline: adjacent `Q:` / `A:` comment annotations. */
-export class AnnotationExtractor implements QuestionExtractor {
-  async extract(input: { path: string; content: string; sha: string }): Promise<GeneratedCard[]> {
-    const cards: GeneratedCard[] = [];
-    const pattern = /(?:\/\/|#|<!--)\s*Q:\s*(.+?)(?:-->)?\s*\r?\n(?:\/\/|#|<!--)\s*A:\s*(.+?)(?:-->)?\s*$/gm;
-    for (const match of input.content.matchAll(pattern)) {
-      if (match[1] && match[2]) {
-        cards.push({
-          question: match[1].trim(),
-          answer: match[2].trim(),
-          source: { path: input.path, sha: input.sha },
-        });
-      }
-    }
-    return cards;
-  }
 }
 
 /** Recursively collect supported source file paths, skipping ignored directories. */
@@ -69,23 +51,4 @@ export async function fileSha(root: string, repositoryPath: string, fallback: st
   } catch {
     return fallback;
   }
-}
-
-/** Baseline repository-wide generation used by the CLI today. */
-export async function generateCards(
-  root: string,
-  extractor: QuestionExtractor = new AnnotationExtractor(),
-): Promise<GeneratedCard[]> {
-  const sha = await headSha(root);
-  const files = await sourceFiles(root);
-  const generated = await Promise.all(
-    files.map(async (path) =>
-      extractor.extract({
-        path: toRepositoryPath(root, path),
-        content: await readFile(path, "utf8"),
-        sha,
-      }),
-    ),
-  );
-  return generated.flat();
 }
