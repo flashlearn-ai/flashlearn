@@ -41,7 +41,10 @@ test("parses start directory, host, and port", async () => {
   assert.deepEqual(cli.calls, [{ method: "start", root: "/project/demo", options: { host: "localhost", port: 8080 } }]);
   assert.deepEqual(output.stdout, [
     "FlashLearn running at http://localhost:8080",
-    "Next: open http://localhost:8080 in your browser",
+    "",
+    "Next:",
+    "  # Open this URL in your browser to begin reviewing",
+    "  http://localhost:8080",
   ]);
 });
 
@@ -58,7 +61,10 @@ test("guides first-time users from init to generate", async () => {
   assert.equal(await runCli(["init", "new repo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
     "Initialized /project/new repo/.flashlearn",
-    "Next: flashlearn generate '/project/new repo'",
+    "",
+    "Next:",
+    "  # Generate study cards from this repository",
+    "  flashlearn generate '/project/new repo'",
   ]);
 });
 
@@ -67,7 +73,10 @@ test("guides users from generation to start", async () => {
   assert.equal(await runCli(["generate", "demo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
     "Generated and stored 0 cards",
-    "Next: flashlearn start '/project/demo'",
+    "",
+    "Next:",
+    "  # Start the local learning experience",
+    "  flashlearn start '/project/demo'",
   ]);
 });
 
