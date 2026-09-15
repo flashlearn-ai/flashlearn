@@ -34,17 +34,22 @@ npm run check
 npm run build
 ```
 
-`npm run check` validates package boundaries, typechecks every workspace, and runs all tests.
+`npm run check` validates package boundaries, typechecks every workspace, runs the repository script tests, and runs all workspace tests.
+
+Scripts under `scripts/` are covered by `test/*.test.mjs` at the repository root, run through `npm run test:scripts`. Workspace tests stay inside their own package.
 
 Run the source CLI from the repository root with `npm run cli -- <command>`. The script builds sibling packages first and preserves the root working directory for default project resolution.
 
-GitHub CI exposes three independent statuses:
+GitHub CI exposes four independent statuses:
 
 - `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`.
+- `CI / No Generated Content` rejects generated cards, ingested repository content, and credentials. It matches on path and on content, so a renamed card dump is still caught. The job needs full history (`fetch-depth: 0`).
 - `CI / Validate` runs `npm run check`.
 - `CI / Build` runs the whole-project build and compiled CLI smoke tests.
 
-Husky installs through the root `prepare` script. Pre-commit runs package boundaries and staged whitespace checks. Pre-push runs package scope, `npm run check`, and `npm run build`. Hooks provide early feedback, but CI remains authoritative because hooks can be bypassed.
+Husky installs through the root `prepare` script. Pre-commit runs package boundaries, staged whitespace checks, and the generated-content gate. Pre-push runs package scope, `npm run check`, and `npm run build`. Hooks provide early feedback, but CI remains authoritative because hooks can be bypassed.
+
+Generated cards and ingested repository content are local-only. `.gitignore` is not sufficient on its own because `git add -f` bypasses it, which is why the gate runs in CI. Legitimate sample data belongs under a `test/fixtures/` directory.
 
 ## Ownership Boundaries
 
