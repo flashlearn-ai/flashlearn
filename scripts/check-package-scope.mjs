@@ -9,11 +9,14 @@ if (!base || !head) {
 
 let output;
 try {
-  output = execFileSync("git", ["diff", "--name-only", base, head, "--", "packages"], {
+  // Three-dot compares against the merge base, so unrelated packages that landed
+  // on the base branch after this one was cut are not counted as its changes.
+  output = execFileSync("git", ["diff", "--name-only", `${base}...${head}`, "--", "packages"], {
     encoding: "utf8",
   });
 } catch {
   console.error(`Unable to compare ${base} with ${head}`);
+  console.error("A shallow clone can be missing the merge base; fetch full history.");
   process.exit(2);
 }
 
