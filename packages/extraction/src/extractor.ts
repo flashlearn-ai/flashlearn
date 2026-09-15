@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { extname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import type { GeneratedCard } from "../../../contracts/index.js";
@@ -51,23 +51,4 @@ export async function fileSha(root: string, repositoryPath: string, fallback: st
   } catch {
     return fallback;
   }
-}
-
-/** Repository-wide generation with a single commit SHA. Callers supply the extractor. */
-export async function generateCards(
-  root: string,
-  extractor: QuestionExtractor,
-): Promise<GeneratedCard[]> {
-  const sha = await headSha(root);
-  const files = await sourceFiles(root);
-  const generated = await Promise.all(
-    files.map(async (path) =>
-      extractor.extract({
-        path: toRepositoryPath(root, path),
-        content: await readFile(path, "utf8"),
-        sha,
-      }),
-    ),
-  );
-  return generated.flat();
 }

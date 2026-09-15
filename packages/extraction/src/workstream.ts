@@ -73,3 +73,11 @@ export class ExtractionService implements ExtractionWorkstream {
     return generated.flat();
   }
 }
+
+/** Repository-wide generation entry point used by the CLI. */
+export async function generateCards(
+  root: string,
+  extractor: QuestionExtractor = defaultExtractor(),
+): Promise<GeneratedCard[]> {
+  return new ExtractionService(extractor).generateFromRepository(root);
+}
