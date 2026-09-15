@@ -195,11 +195,19 @@ The CLI returns exit code `0` for success, `1` for execution failures, and `2` f
 
 Husky installs through the root `prepare` script. Pre-commit checks package boundaries and staged whitespace. Pre-push enforces one-package scope, runs all checks, and builds the complete workspace. CI remains authoritative because hooks can be bypassed with `--no-verify`.
 
-The baseline extractor creates cards from adjacent annotations in supported source and Markdown files:
+The baseline extractors derive cards from documentation already present in the source. Markdown headings become questions answered by the prose beneath them, and documented exports become questions answered by their doc comments:
 
-```ts
-// Q: What starts the local application?
-// A: The flashlearn start command.
+```go
+// Reconcile drives the cluster toward the desired state.
+func Reconcile(ctx context.Context) error
+```
+
+Exported declarations without a doc comment become locator cards naming the file that defines them. Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`.
+
+To compare extraction output against a real repository:
+
+```bash
+npm run report --workspace @flashlearn/extraction -- /path/to/repo
 ```
 
 The `QuestionExtractor` port is the seam for replacing this baseline with an LLM-backed implementation without changing storage or learning code.
