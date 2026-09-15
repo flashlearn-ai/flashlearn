@@ -17,9 +17,9 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
 1. 🔵 **CLI / orchestration** (`packages/cli`)
    - **Status:** ✅ Done
    - **Owner:** David
-   - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, configuration, directory selection, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
+   - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, `project set/show/status`, `question list/get`, structured output, configuration, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
    - **Dependencies:** May depend on all packages
-   - **Current:** Commands, package wiring, and integration tests are implemented
+   - **Current:** Commands, saved `FLASHLEARN_PROJECT` configuration, text/JSON/YAML queries, package wiring, and integration tests are implemented
    - **Next:** Integrate completed owner packages as they merge
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
@@ -102,7 +102,7 @@ Map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint.
 ```mermaid
 flowchart TD
   subgraph CLIRegion["🔵 CLI / orchestration · David · packages/cli"]
-    CLI["<b>⚙️ Methods:</b><br/>projectRoot(input)<br/>flashlearnRoot(input)<br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
+    CLI["<b>⚙️ Methods:</b><br/>projectRoot(input)<br/>flashlearnRoot(input)<br/>project set · show · status<br/>question get · list<br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> ProjectStatus<br/>project · cards · reviewed<br/>unreviewed · due<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
   end
 
   subgraph PackagePipeline["Contract handoffs"]
@@ -183,11 +183,13 @@ npm run test --workspace @flashlearn/learning
 Run the development CLI from the repository root:
 
 ```bash
-npm run dev --workspace @flashlearn/cli -- --help
-npm run dev --workspace @flashlearn/cli -- init .
-npm run dev --workspace @flashlearn/cli -- generate .
-npm run dev --workspace @flashlearn/cli -- start . --host 127.0.0.1 --port 4173
+npm run cli -- --help
+npm run cli -- init .
+npm run cli -- generate .
+npm run cli -- start . --host localhost --port 4173
 ```
+
+The root `cli` script runs with the repository as its working directory and builds the package dependencies first. Arguments after `--` are passed to FlashLearn.
 
 The CLI returns exit code `0` for success, `1` for execution failures, and `2` for invalid commands or arguments. See `packages/cli/README.md` for its dependency-injection and integration-test structure.
 

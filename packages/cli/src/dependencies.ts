@@ -25,5 +25,10 @@ export interface CliDependencies {
   selectNextCard(cards: Card[], states: ReviewState[], now?: Date): Card | null;
   createServer(services: FrontendServices): ServerHandle;
   listenServer(server: ServerHandle, host: string, port: number): Promise<void>;
+  isDirectory(path: string): Promise<boolean>;
+  loadSavedProject(): Promise<string | null>;
+  saveProject(path: string): Promise<void>;
+  environmentProject(): string | undefined;
+  setEnvironmentProject(path: string): void;
   now(): Date;
 }

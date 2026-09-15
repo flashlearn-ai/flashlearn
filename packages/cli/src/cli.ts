@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { flashlearnRoot } from "./paths.js";
-import type { CliWorkstream, StartOptions } from "./workstream.js";
+import type { Card } from "../../../contracts/index.js";
+import type { CliWorkstream, ProjectStatus, StartOptions } from "./workstream.js";
 
 export const CLI_VERSION = "0.0.0";
 
@@ -10,10 +11,18 @@ Commands:
   init [directory]       Initialize a FlashLearn project
   generate [directory]   Generate and store cards
   start [directory]      Start the local learning server
+  project set <directory> Save the default project directory
+  project show            Show the selected project directory
+  project status          Show project learning status
+  question list           List generated questions
+  question get <card-id>  Get one question and answer
 
 Start options:
   --host <host>           Host to bind (default: localhost)
   --port <port>           Port to bind (default: 4173)
+
+Query options:
+  -o, --output <format>   Output as text, json, or yaml (default: text)
 
 General options:
   -h, --help              Show help
@@ -40,16 +49,60 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
     }
 
     const [command, ...commandArgs] = args;
+    if (command === "project") {
+      const [subcommand, ...subcommandArgs] = commandArgs;
+      if (subcommand === "set") {
+        const directory = subcommandArgs[0];
+        if (subcommandArgs.length !== 1 || !directory || directory.startsWith("-")) throw new UsageError("project set requires one directory");
+        const root = await service.setProject(resolve(io.cwd, directory));
+        io.stdout(`Project saved: ${root}`);
+        io.stdout(`Future commands will use this project. Override it with FLASHLEARN_PROJECT=${quoteArgument(root)}.`);
+        return 0;
+      }
+      if (subcommand === "show" || subcommand === "status") {
+        const { positional, format } = parseQuery(subcommandArgs);
+        if (positional.length) throw new UsageError(`project ${subcommand} does not accept arguments`);
+        if (subcommand === "show") {
+          const project = await service.resolveProject();
+          io.stdout(formatValue({ project }, format, ({ project: path }) => path));
+        } else {
+          const status = await service.status();
+          io.stdout(formatValue(status, format, formatStatus));
+        }
+        return 0;
+      }
+      throw new UsageError(`Unknown project command: ${subcommand ?? "(missing)"}`);
+    }
+    if (command === "question") {
+      const [subcommand, ...subcommandArgs] = commandArgs;
+      const { positional, format } = parseQuery(subcommandArgs);
+      if (subcommand === "get") {
+        if (positional.length !== 1) throw new UsageError("question get requires one card ID");
+        const card = await service.getCard(positional[0]!);
+        if (!card) throw new Error(`Card not found: ${positional[0]}`);
+        io.stdout(formatValue(card, format, formatCard));
+      } else if (subcommand === "list") {
+        if (positional.length) throw new UsageError("question list does not accept arguments");
+        const cards = await service.listCards();
+        io.stdout(formatValue(cards, format, formatCardList));
+      } else {
+        throw new UsageError(`Unknown question command: ${subcommand ?? "(missing)"}`);
+      }
+      return 0;
+    }
     if (command === "init" || command === "generate") {
-      const directory = parseDirectoryOnly(commandArgs, io.cwd);
+      const directoryArgument = parseDirectoryOnly(commandArgs);
       if (command === "init") {
+        const directory = resolve(io.cwd, directoryArgument ?? ".");
         await service.initialize(directory);
         io.stdout(`Initialized ${flashlearnRoot(directory)}`);
+        io.stdout(`Active project: ${directory}`);
         io.stdout("");
         io.stdout("Next:");
         io.stdout("  # Generate study cards from this repository");
-        io.stdout(`  flashlearn generate ${quoteArgument(directory)}`);
+        io.stdout("  flashlearn generate");
       } else {
+        const directory = await service.resolveProject(directoryArgument ? resolve(io.cwd, directoryArgument) : undefined);
         const cards = await service.generate(directory);
         io.stdout(`Generated and stored ${cards.length} card${cards.length === 1 ? "" : "s"}`);
         io.stdout("");
@@ -60,7 +113,8 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
       return 0;
     }
     if (command === "start") {
-      const { directory, options } = parseStart(commandArgs, io.cwd);
+      const { directory: directoryArgument, options } = parseStart(commandArgs);
+      const directory = await service.resolveProject(directoryArgument ? resolve(io.cwd, directoryArgument) : undefined);
       await service.start(directory, options);
       const url = `http://${options.host ?? "localhost"}:${options.port ?? 4173}`;
       io.stdout(`FlashLearn running at ${url}`);
@@ -82,17 +136,88 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
   }
 }
 
+type OutputFormat = "text" | "json" | "yaml";
+
+function parseQuery(args: string[]): { positional: string[]; format: OutputFormat } {
+  const positional: string[] = [];
+  let format: OutputFormat = "text";
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "-o" || argument === "--output") {
+      const value = requireValue(args, ++index, argument);
+      if (value !== "text" && value !== "json" && value !== "yaml") {
+        throw new UsageError("--output must be text, json, or yaml");
+      }
+      format = value;
+    } else if (argument?.startsWith("-")) {
+      throw new UsageError(`Unknown option: ${argument}`);
+    } else if (argument) {
+      positional.push(argument);
+    }
+  }
+  return { positional, format };
+}
+
+function formatValue<T>(value: T, format: OutputFormat, text: (value: T) => string): string {
+  if (format === "json") return JSON.stringify(value, null, 2);
+  if (format === "yaml") return toYaml(value);
+  return text(value);
+}
+
+function formatCard(card: Card): string {
+  const tags = card.tags?.length ? `\nTags: ${card.tags.join(", ")}` : "";
+  return `ID: ${card.id}\nQuestion: ${card.question}\nAnswer: ${card.answer}\nSource: ${card.source.path} @ ${card.source.sha}${tags}`;
+}
+
+function formatCardList(cards: Card[]): string {
+  return cards.length ? cards.map(({ id, question }) => `${id}\t${question}`).join("\n") : "No cards found.";
+}
+
+function formatStatus(status: ProjectStatus): string {
+  return `Project: ${status.project}\nCards: ${status.cards}\nReviewed: ${status.reviewed}\nUnreviewed: ${status.unreviewed}\nDue: ${status.due}`;
+}
+
+function toYaml(value: unknown, indent = 0): string {
+  const space = " ".repeat(indent);
+  if (Array.isArray(value)) {
+    if (!value.length) return "[]";
+    return value.map((item) => {
+      if (isScalar(item)) return `${space}- ${yamlScalar(item)}`;
+      const nested = toYaml(item, indent + 2).split("\n");
+      return `${space}-${nested.map((line, index) => index === 0 ? ` ${line.trimStart()}` : `\n${line}`).join("")}`;
+    }).join("\n");
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value);
+    if (!entries.length) return "{}";
+    return entries.map(([key, item]) => isScalar(item)
+      ? `${space}${key}: ${yamlScalar(item)}`
+      : `${space}${key}:\n${toYaml(item, indent + 2)}`).join("\n");
+  }
+  return `${space}${yamlScalar(value)}`;
+}
+
+function isScalar(value: unknown): boolean {
+  return value === null || typeof value !== "object";
+}
+
+function yamlScalar(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (value === undefined) return "null";
+  return String(value);
+}
+
 function quoteArgument(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-function parseDirectoryOnly(args: string[], cwd: string): string {
+function parseDirectoryOnly(args: string[]): string | undefined {
   if (args.some((arg) => arg.startsWith("-"))) throw new UsageError(`Unknown option: ${args.find((arg) => arg.startsWith("-"))}`);
   if (args.length > 1) throw new UsageError("Expected at most one directory");
-  return resolve(cwd, args[0] ?? ".");
+  return args[0];
 }
 
-function parseStart(args: string[], cwd: string): { directory: string; options: StartOptions } {
+function parseStart(args: string[]): { directory?: string; options: StartOptions } {
   let directory: string | undefined;
   let host: string | undefined;
   let port: number | undefined;
@@ -115,7 +240,7 @@ function parseStart(args: string[], cwd: string): { directory: string; options: 
     }
   }
 
-  return { directory: resolve(cwd, directory ?? "."), options: { host, port } };
+  return { directory, options: { host, port } };
 }
 
 function requireValue(args: string[], index: number, option: string): string {

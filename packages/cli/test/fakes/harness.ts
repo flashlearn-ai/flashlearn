@@ -66,6 +66,9 @@ export class RecordingDependencies implements CliDependencies {
   listenCalls: Array<{ server: ServerHandle; host: string; port: number }> = [];
   currentTime = new Date("2026-01-02T03:04:05.000Z");
   server = { kind: "fake-server" };
+  directories = new Set<string>();
+  savedProject: string | null = null;
+  environmentProjectPath?: string;
 
   async initializeStore(root: string): Promise<void> {
     this.initializedRoots.push(root);
@@ -116,6 +119,26 @@ export class RecordingDependencies implements CliDependencies {
 
   async listenServer(server: ServerHandle, host: string, port: number): Promise<void> {
     this.listenCalls.push({ server, host, port });
+  }
+
+  async isDirectory(path: string): Promise<boolean> {
+    return this.directories.has(path);
+  }
+
+  async loadSavedProject(): Promise<string | null> {
+    return this.savedProject;
+  }
+
+  async saveProject(path: string): Promise<void> {
+    this.savedProject = path;
+  }
+
+  environmentProject(): string | undefined {
+    return this.environmentProjectPath;
+  }
+
+  setEnvironmentProject(path: string): void {
+    this.environmentProjectPath = path;
   }
 
   now(): Date {

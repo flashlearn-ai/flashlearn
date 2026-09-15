@@ -36,6 +36,8 @@ npm run build
 
 `npm run check` validates package boundaries, typechecks every workspace, and runs all tests.
 
+Run the source CLI from the repository root with `npm run cli -- <command>`. The script builds sibling packages first and preserves the root working directory for default project resolution.
+
 GitHub CI exposes three independent statuses:
 
 - `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`.
@@ -108,7 +110,9 @@ Contract changes require coordinated review because all five workstreams may dep
 
 ### CLI
 
-- Commands are `flashlearn init [directory]`, `flashlearn generate [directory]`, and `flashlearn start [directory]`.
+- Commands are `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, `flashlearn project set <directory>`, `flashlearn project show`, `flashlearn project status`, `flashlearn question get <card-id>`, and `flashlearn question list`.
+- Query commands support `-o, --output text|json|yaml` and resolve the selected project from `FLASHLEARN_PROJECT` before the saved user config.
+- `set-project` persists the default under `${XDG_CONFIG_HOME:-~/.config}/flashlearn/config.json`; a child CLI process cannot permanently modify its parent shell environment.
 - General options are `--help`, `-h`, `--version`, and `-v`; start also accepts `--host` and `--port`.
 - Exit code `0` means success, `1` means execution failure, and `2` means invalid arguments.
 - `src/index.ts` is the executable entrypoint, `src/cli.ts` parses commands, `CliService` orchestrates, and `src/production.ts` wires real package implementations.
