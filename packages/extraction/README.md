@@ -10,4 +10,4 @@ Fill in `ExtractionService` in `src/workstream.ts`. Its three methods currently 
 | `generateFromDocument(document)` | Produce attributed questions and answers from one source document. |
 | `generateFromRepository(root)` | Scan the repository, generate cards from each document, and return `GeneratedCard[]`. |
 
-Return no IDs, timestamps, learning metadata, or UI data. The existing `QuestionExtractor`, `AnnotationExtractor`, and `generateCards` functions are the baseline seams to evolve or adapt.
+Return no IDs, timestamps, learning metadata, or UI data. `QuestionExtractor` is the seam every extractor implements. `MarkdownExtractor` and `JsDocExtractor` are the deterministic baseline, combined by `CompositeExtractor` in `defaultExtractor()`. An AI-backed extractor slots into the same seam without changing storage or learning code.

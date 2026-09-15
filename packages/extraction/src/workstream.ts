@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { GeneratedCard } from "../../../contracts/index.js";
 import {
-  AnnotationExtractor,
   fileSha,
   headSha,
   sourceFiles,
@@ -10,9 +9,9 @@ import {
 } from "./extractor.js";
 import { CompositeExtractor, JsDocExtractor, MarkdownExtractor } from "./extractors.js";
 
-/** Deterministic default: annotations, Markdown headings, and JSDoc summaries. */
+/** Deterministic default: Markdown headings and JSDoc summaries. */
 export function defaultExtractor(): QuestionExtractor {
-  return new CompositeExtractor(new AnnotationExtractor(), new MarkdownExtractor(), new JsDocExtractor());
+  return new CompositeExtractor(new MarkdownExtractor(), new JsDocExtractor());
 }
 
 export type SourceDocument = {
