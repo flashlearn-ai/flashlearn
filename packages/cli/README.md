@@ -22,3 +22,11 @@ npm run dev --workspace @flashlearn/cli -- start . --port 4173
 ```
 
 Tests use in-memory repositories and recording package fakes from `test/fakes/harness.ts`. `contracts.test.ts` validates each package handshake, while `pipeline.test.ts` exercises extraction through frontend service composition without disk or network access.
+
+Successful commands guide first-time users through the setup flow:
+
+```text
+init -> generate -> start -> open the local URL
+```
+
+Suggested commands include the resolved project directory and quote it so paths containing spaces remain usable in a shell.
