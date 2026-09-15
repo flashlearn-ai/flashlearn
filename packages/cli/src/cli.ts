@@ -11,7 +11,7 @@ Commands:
   start [directory]      Start the local learning server
 
 Start options:
-  --host <host>           Host to bind (default: 127.0.0.1)
+  --host <host>           Host to bind (default: localhost)
   --port <port>           Port to bind (default: 4173)
 
 General options:
@@ -55,7 +55,7 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
     if (command === "start") {
       const { directory, options } = parseStart(commandArgs, io.cwd);
       await service.start(directory, options);
-      const url = `http://${options.host ?? "127.0.0.1"}:${options.port ?? 4173}`;
+      const url = `http://${options.host ?? "localhost"}:${options.port ?? 4173}`;
       io.stdout(`FlashLearn running at ${url}`);
       io.stdout(`Next: open ${url} in your browser`);
       return 0;
@@ -92,6 +92,7 @@ function parseStart(args: string[], cwd: string): { directory: string; options: 
     if (argument === "--host") {
       host = requireValue(args, ++index, "--host");
       if (!host.trim()) throw new UsageError("--host cannot be empty");
+      if (host === "0.0.0.0" || host === "::") throw new UsageError("--host must not use a wildcard address");
     } else if (argument === "--port") {
       const value = requireValue(args, ++index, "--port");
       port = Number(value);

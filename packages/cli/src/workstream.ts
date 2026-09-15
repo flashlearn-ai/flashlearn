@@ -74,7 +74,7 @@ export class CliService implements CliWorkstream {
       },
     };
     const server = this.dependencies.createServer(services);
-    await this.dependencies.listenServer(server, options.host ?? "127.0.0.1", options.port ?? 4173);
+    await this.dependencies.listenServer(server, options.host ?? "localhost", options.port ?? 4173);
   }
 
   private validateGeneratedCard(card: {

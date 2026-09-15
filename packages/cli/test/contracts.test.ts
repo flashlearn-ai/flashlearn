@@ -44,12 +44,12 @@ test("learning boundary receives cards and review states and saves its result", 
 test("frontend boundary receives all services and server options", async () => {
   const dependencies = new RecordingDependencies();
   const service = new CliService(dependencies);
-  await service.start("/repo", { host: "0.0.0.0", port: 8080 });
+  await service.start("/repo", { host: "localhost", port: 8080 });
 
   assert(dependencies.frontendServices);
   assert.equal(typeof dependencies.frontendServices.listCards, "function");
   assert.equal(typeof dependencies.frontendServices.nextCard, "function");
   assert.equal(typeof dependencies.frontendServices.getCard, "function");
   assert.equal(typeof dependencies.frontendServices.submitReview, "function");
-  assert.deepEqual(dependencies.listenCalls, [{ server: dependencies.server, host: "0.0.0.0", port: 8080 }]);
+  assert.deepEqual(dependencies.listenCalls, [{ server: dependencies.server, host: "localhost", port: 8080 }]);
 });
