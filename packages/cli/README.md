@@ -12,6 +12,8 @@ The CLI is the composition root. `CliService` in `src/workstream.ts` owns orches
 
 Keep extraction, persistence, scheduling, and presentation algorithms in their owning packages.
 
+`projectRoot(input)` centralizes absolute project path resolution. `flashlearnRoot(input)` derives the project's `.flashlearn/` directory. The CLI passes the project root to storage; storage owns creating and persisting the directory contents.
+
 Run the source CLI from the repository root:
 
 ```bash

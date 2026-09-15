@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { flashlearnRoot } from "./paths.js";
 import type { CliWorkstream, StartOptions } from "./workstream.js";
 
 export const CLI_VERSION = "0.0.0";
@@ -43,7 +44,7 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
       const directory = parseDirectoryOnly(commandArgs, io.cwd);
       if (command === "init") {
         await service.initialize(directory);
-        io.stdout(`Initialized ${resolve(directory, ".flashlearn")}`);
+        io.stdout(`Initialized ${flashlearnRoot(directory)}`);
         io.stdout("");
         io.stdout("Next:");
         io.stdout("  # Generate study cards from this repository");
