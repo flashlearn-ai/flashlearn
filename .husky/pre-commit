@@ -1,2 +1,3 @@
 npm run boundaries
 git diff --cached --check
+node scripts/check-generated-content.mjs

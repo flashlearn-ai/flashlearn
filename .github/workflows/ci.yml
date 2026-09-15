@@ -25,6 +25,21 @@ jobs:
         if: github.event_name == 'push'
         run: node scripts/check-package-scope.mjs "${{ github.event.before }}" "${{ github.sha }}"
 
+  generated-content:
+    name: No Generated Content
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check pull request for generated or confidential content
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-generated-content.mjs "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+      - name: Check pushed commits for generated or confidential content
+        if: github.event_name == 'push'
+        run: node scripts/check-generated-content.mjs "${{ github.event.before }}" "${{ github.sha }}"
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
