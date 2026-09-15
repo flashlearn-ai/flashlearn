@@ -102,7 +102,7 @@ Map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint.
 ```mermaid
 flowchart TD
   subgraph CLIRegion["🔵 CLI / orchestration · David · packages/cli"]
-    CLI["<b>⚙️ Methods:</b><br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
+    CLI["<b>⚙️ Methods:</b><br/>projectRoot(input)<br/>flashlearnRoot(input)<br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
   end
 
   subgraph PackagePipeline["Contract handoffs"]
@@ -112,7 +112,7 @@ flowchart TD
     end
 
     subgraph StorageRegion["🟠 Storage / repositories · Sagar · packages/storage"]
-      Storage["<b>⚙️ Methods:</b><br/>initialize(root)<br/>createCardRepository(root)<br/>createReviewRepository(root)<br/><br/><b>🧩 Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>🧩 Type:</b> ReviewRepository<br/>get · save"]
+      Storage["<b>⚙️ Methods:</b><br/>initialize(projectRoot)<br/>createCardRepository(projectRoot)<br/>createReviewRepository(projectRoot)<br/><br/><b>📁 .flashlearn/</b><br/>cards.json · generated cards<br/>review.json · learning state<br/>settings.json · local configuration<br/><br/><b>🧩 Type:</b> CardRepository<br/>save · get · list · delete<br/><br/><b>🧩 Type:</b> ReviewRepository<br/>get · save"]
     end
 
     subgraph LearningRegion["🟣 Learning engine · Jenny · packages/learning"]
@@ -128,7 +128,7 @@ flowchart TD
   Storage -->|Card + ReviewState| Learning
   Learning -->|due Card + review updates| Frontend
   CLI -.->|invokes generation| Extraction
-  CLI -.->|creates Card + repositories| Storage
+  CLI -.->|provides projectRoot| Storage
   CLI -.->|requests scheduling| Learning
   CLI -.->|starts server| Frontend
 
@@ -152,9 +152,9 @@ flowchart TD
 
 Contract ownership is:
 
-1. **CLI:** `Card`, `StartOptions`, and orchestration methods
+1. **CLI:** `Card`, `StartOptions`, `projectRoot()`, `flashlearnRoot()`, and orchestration methods
 2. **Extraction:** `SourceDocument`, `GeneratedCard`, and extraction methods
-3. **Storage:** `CardRepository`, `ReviewRepository`, and storage lifecycle methods
+3. **Storage:** `.flashlearn/` contents, `CardRepository`, `ReviewRepository`, and storage lifecycle methods
 4. **Learning:** `ReviewState`, `ReviewResult`, and scheduling methods
 5. **Frontend:** `CardPreview`, `SubmitReviewRequest`, HTTP endpoints, and frontend service methods
 

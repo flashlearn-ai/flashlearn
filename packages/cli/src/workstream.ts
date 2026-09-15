@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
 import type { Card, ReviewResult } from "../../../contracts/index.js";
 import type { CliDependencies, FrontendServices } from "./dependencies.js";
+import { projectRoot } from "./paths.js";
 
 export type StartOptions = {
   host?: string;
@@ -18,11 +18,11 @@ export class CliService implements CliWorkstream {
   constructor(private readonly dependencies: CliDependencies) {}
 
   async initialize(root: string): Promise<void> {
-    await this.dependencies.initializeStore(resolve(root));
+    await this.dependencies.initializeStore(projectRoot(root));
   }
 
   async generate(directory: string): Promise<Card[]> {
-    const root = resolve(directory);
+    const root = projectRoot(directory);
     await this.dependencies.initializeStore(root);
     const repository = this.dependencies.createCardRepository(root);
     const generatedCards = await this.dependencies.generateCards(root);
@@ -50,10 +50,10 @@ export class CliService implements CliWorkstream {
   }
 
   async start(root: string, options: StartOptions = {}): Promise<void> {
-    const projectRoot = resolve(root);
-    await this.dependencies.initializeStore(projectRoot);
-    const cards = this.dependencies.createCardRepository(projectRoot);
-    const reviews = this.dependencies.createReviewRepository(projectRoot);
+    const rootPath = projectRoot(root);
+    await this.dependencies.initializeStore(rootPath);
+    const cards = this.dependencies.createCardRepository(rootPath);
+    const reviews = this.dependencies.createReviewRepository(rootPath);
     const services: FrontendServices = {
       listCards: () => cards.list(),
       getCard: (id) => cards.get(id),

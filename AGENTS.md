@@ -89,7 +89,7 @@ The shared models are:
 
 Every card source must contain both repository-relative `path` and Git `sha`. Keep learning metadata separate from card generation.
 
-Every shared contract type must have exactly one semantic owner among the five packages, even though cross-package declarations remain physically in `contracts/`. Current ownership is: CLI owns `Card`; extraction owns `GeneratedCard`; storage owns repository interfaces; learning owns `ReviewState` and `ReviewResult`; frontend owns HTTP request and response shapes. New contract types must be assigned to one package and shown inside that package's colored region in the README contract map. Keep the map readable in two dimensions: CLI is the orchestration layer above a left-to-right package pipeline. Use solid arrows for adjacent contract handoffs and dashed arrows for CLI composition; avoid other cross-links that tangle the diagram. Preserve the map legend: ⚙️ method, 🧩 type, and 🌐 HTTP endpoint.
+Every shared contract type must have exactly one semantic owner among the five packages, even though cross-package declarations remain physically in `contracts/`. Current ownership is: CLI owns `Card` and project-root resolution; extraction owns `GeneratedCard`; storage owns `.flashlearn/` contents and repository interfaces; learning owns `ReviewState` and `ReviewResult`; frontend owns HTTP request and response shapes. New contract types must be assigned to one package and shown inside that package's colored region in the README contract map. Keep the map readable in two dimensions: CLI is the orchestration layer above a left-to-right package pipeline. Use solid arrows for adjacent contract handoffs and dashed arrows for CLI composition; avoid other cross-links that tangle the diagram. Preserve the map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint, and 📁 local storage.
 
 The locked endpoints are:
 
@@ -113,6 +113,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - Exit code `0` means success, `1` means execution failure, and `2` means invalid arguments.
 - `src/index.ts` is the executable entrypoint, `src/cli.ts` parses commands, `CliService` orchestrates, and `src/production.ts` wires real package implementations.
 - Keep external capabilities behind the CLI-owned interfaces in `src/dependencies.ts` so orchestration stays testable.
+- Use `projectRoot()` and `flashlearnRoot()` from `src/paths.ts` for project paths; do not reconstruct `.flashlearn/` paths elsewhere in the CLI.
 - CLI selects paths and composes services; extraction owns actual repository traversal.
 - CLI starts the server; frontend owns HTTP routing and browser behavior.
 - Do not move scheduling, extraction, persistence, or UI logic into the CLI.
@@ -129,6 +130,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - `.flashlearn/cards.json` is an array of cards.
 - `.flashlearn/review.json` is an object keyed by card ID.
 - `.flashlearn/settings.json` contains local configuration and schema version data.
+- CLI resolves and passes the project root; storage owns creating and persisting `.flashlearn/` contents.
 - Preserve atomic writes and idempotent initialization.
 - Storage must not contain scheduling, extraction, or presentation decisions.
 
