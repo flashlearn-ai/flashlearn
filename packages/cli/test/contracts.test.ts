@@ -26,6 +26,18 @@ test("storage boundary initializes and uses locked repositories", async () => {
   assert.equal(dependencies.createCardRepository(root).saved.length, 1);
 });
 
+test("initialization selects the project after storage is ready", async () => {
+  const dependencies = new RecordingDependencies();
+  const root = resolve("/repo");
+  dependencies.directories.add(root);
+
+  await new CliService(dependencies).initialize(root);
+
+  assert.deepEqual(dependencies.initializedRoots, [root]);
+  assert.equal(dependencies.savedProject, root);
+  assert.equal(dependencies.environmentProjectPath, root);
+});
+
 test("learning boundary receives cards and review states and saves its result", async () => {
   const dependencies = new RecordingDependencies();
   dependencies.generatedCards = [GENERATED_CARD];

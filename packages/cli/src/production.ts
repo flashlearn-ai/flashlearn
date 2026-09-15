@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { generateCards } from "@flashlearn/extraction";
 import { createFlashLearnServer } from "@flashlearn/frontend";
@@ -6,6 +7,7 @@ import { scheduleReview, selectNextCard } from "@flashlearn/learning";
 import { initializeStore, JsonCardRepository, JsonReviewRepository } from "@flashlearn/storage";
 import type { CliDependencies } from "./dependencies.js";
 import { flashlearnRoot } from "./paths.js";
+import { loadSavedProject, PROJECT_ENV, saveProject } from "./project-config.js";
 
 export function createProductionDependencies(): CliDependencies {
   return {
@@ -27,6 +29,18 @@ export function createProductionDependencies(): CliDependencies {
         });
       });
     },
+    isDirectory: async (path) => {
+      try {
+        return (await stat(path)).isDirectory();
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+        throw error;
+      }
+    },
+    loadSavedProject,
+    saveProject,
+    environmentProject: () => process.env[PROJECT_ENV],
+    setEnvironmentProject: (path) => { process.env[PROJECT_ENV] = path; },
     now: () => new Date(),
   };
 }

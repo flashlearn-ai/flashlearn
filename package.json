@@ -7,6 +7,7 @@
     "build": "npm run build:packages && npm run build --workspace @flashlearn/cli",
     "build:packages": "npm run build --workspace @flashlearn/extraction && npm run build --workspace @flashlearn/frontend && npm run build --workspace @flashlearn/learning && npm run build --workspace @flashlearn/storage",
     "check": "npm run boundaries && npm run typecheck && npm test",
+    "cli": "npm run build:packages --silent && tsx packages/cli/src/index.ts",
     "boundaries": "node scripts/check-boundaries.mjs",
     "prepare": "husky",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",

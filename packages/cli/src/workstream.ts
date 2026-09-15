@@ -8,17 +8,32 @@ export type StartOptions = {
   port?: number;
 };
 
+export type ProjectStatus = {
+  project: string;
+  cards: number;
+  reviewed: number;
+  unreviewed: number;
+  due: number;
+};
+
 export interface CliWorkstream {
   initialize(root: string): Promise<void>;
   generate(directory: string): Promise<Card[]>;
   start(root: string, options?: StartOptions): Promise<void>;
+  setProject(directory: string): Promise<string>;
+  resolveProject(directory?: string): Promise<string>;
+  getCard(id: string, directory?: string): Promise<Card | null>;
+  listCards(directory?: string): Promise<Card[]>;
+  status(directory?: string): Promise<ProjectStatus>;
 }
 
 export class CliService implements CliWorkstream {
   constructor(private readonly dependencies: CliDependencies) {}
 
   async initialize(root: string): Promise<void> {
-    await this.dependencies.initializeStore(projectRoot(root));
+    const rootPath = projectRoot(root);
+    await this.dependencies.initializeStore(rootPath);
+    await this.setProject(rootPath);
   }
 
   async generate(directory: string): Promise<Card[]> {
@@ -75,6 +90,45 @@ export class CliService implements CliWorkstream {
     };
     const server = this.dependencies.createServer(services);
     await this.dependencies.listenServer(server, options.host ?? "localhost", options.port ?? 4173);
+  }
+
+  async setProject(directory: string): Promise<string> {
+    const root = projectRoot(directory);
+    if (!await this.dependencies.isDirectory(root)) throw new Error(`Directory not found: ${root}`);
+    await this.dependencies.saveProject(root);
+    this.dependencies.setEnvironmentProject(root);
+    return root;
+  }
+
+  async resolveProject(directory?: string): Promise<string> {
+    const selected = directory
+      ?? this.dependencies.environmentProject()
+      ?? await this.dependencies.loadSavedProject();
+    if (!selected) throw new Error("No project selected. Run `flashlearn project set <directory>`.");
+    const root = projectRoot(selected);
+    if (!await this.dependencies.isDirectory(root)) throw new Error(`Project directory not found: ${root}`);
+    return root;
+  }
+
+  async getCard(id: string, directory?: string): Promise<Card | null> {
+    const root = await this.resolveProject(directory);
+    return this.dependencies.createCardRepository(root).get(id);
+  }
+
+  async listCards(directory?: string): Promise<Card[]> {
+    const root = await this.resolveProject(directory);
+    return this.dependencies.createCardRepository(root).list();
+  }
+
+  async status(directory?: string): Promise<ProjectStatus> {
+    const root = await this.resolveProject(directory);
+    const cards = await this.dependencies.createCardRepository(root).list();
+    const reviews = this.dependencies.createReviewRepository(root);
+    const states = await Promise.all(cards.map(({ id }) => reviews.get(id)));
+    const now = this.dependencies.now();
+    const reviewed = states.filter(({ reviewCount }) => reviewCount > 0).length;
+    const due = states.filter(({ nextReview }) => !nextReview || new Date(nextReview) <= now).length;
+    return { project: root, cards: cards.length, reviewed, unreviewed: cards.length - reviewed, due };
   }
 
   private validateGeneratedCard(card: {
