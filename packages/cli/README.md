@@ -54,6 +54,15 @@ flashlearn question get CARD_ID -o json
 
 Accepted formats are `text`, `json`, and `yaml`.
 
+Run a command group without a subcommand, or add `--help`, to see focused usage:
+
+```bash
+flashlearn project
+flashlearn question
+flashlearn project status --help
+flashlearn question get --help
+```
+
 The local server binds to `localhost` by default. Wildcard addresses such as `0.0.0.0` and `::` are rejected to avoid exposing the learning server beyond the local machine.
 
 Tests use in-memory repositories and recording package fakes from `test/fakes/harness.ts`. `contracts.test.ts` validates each package handshake, while `pipeline.test.ts` exercises extraction through frontend service composition without disk or network access.

@@ -28,6 +28,19 @@ General options:
   -h, --help              Show help
   -v, --version           Show version`;
 
+const COMMAND_HELP: Record<string, string> = {
+  init: `Usage: flashlearn init [directory]\n\nInitialize .flashlearn state and select the project.`,
+  generate: `Usage: flashlearn generate [directory]\n\nGenerate and store questions for a project. Uses the selected project when directory is omitted.`,
+  start: `Usage: flashlearn start [directory] [options]\n\nStart the local learning server. Uses the selected project when directory is omitted.\n\nOptions:\n  --host <host>  Host to bind (default: localhost)\n  --port <port>  Port to bind (default: 4173)`,
+  project: `Usage: flashlearn project <command> [options]\n\nCommands:\n  set <directory>  Save the default project directory\n  show             Show the selected project directory\n  status           Show project learning status\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
+  "project set": `Usage: flashlearn project set <directory>\n\nValidate and save the default project directory.`,
+  "project show": `Usage: flashlearn project show [options]\n\nShow the effective project selected by FLASHLEARN_PROJECT or saved configuration.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
+  "project status": `Usage: flashlearn project status [options]\n\nShow card and review counts for the selected project.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
+  question: `Usage: flashlearn question <command> [options]\n\nCommands:\n  list           List generated questions\n  get <card-id>  Get one question, answer, and source\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
+  "question list": `Usage: flashlearn question list [options]\n\nList questions from the selected project.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
+  "question get": `Usage: flashlearn question get <card-id> [options]\n\nGet one question, answer, and source from the selected project.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
+};
+
 export type CliIO = {
   cwd: string;
   stdout(message: string): void;
@@ -38,8 +51,9 @@ class UsageError extends Error {}
 
 export async function runCli(args: string[], service: CliWorkstream, io: CliIO): Promise<number> {
   try {
-    if (args.length === 0 || args[0] === "help" || args.includes("--help") || args.includes("-h")) {
-      io.stdout(HELP);
+    const help = helpFor(args);
+    if (help) {
+      io.stdout(help);
       return 0;
     }
     if (args[0] === "--version" || args[0] === "-v") {
@@ -134,6 +148,24 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
     }
     return 1;
   }
+}
+
+function helpFor(args: string[]): string | null {
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") return HELP;
+  const helpArgs = args[0] === "help" ? args.slice(1) : args;
+  if (args[0] === "help" && helpArgs.length === 0) return HELP;
+
+  const command = helpArgs[0];
+  if (!command) return null;
+  const subcommand = helpArgs[1];
+  const requested = args[0] === "help" || helpArgs.includes("--help") || helpArgs.includes("-h");
+  const bareGroup = (command === "project" || command === "question") && helpArgs.length === 1;
+  if (!requested && !bareGroup) return null;
+
+  const key = subcommand && subcommand !== "--help" && subcommand !== "-h"
+    ? `${command} ${subcommand}`
+    : command;
+  return COMMAND_HELP[key] ?? COMMAND_HELP[command] ?? HELP;
 }
 
 type OutputFormat = "text" | "json" | "yaml";

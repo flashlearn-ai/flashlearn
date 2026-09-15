@@ -55,6 +55,31 @@ test("shows help with a successful exit code", async () => {
   assert.deepEqual(output.stderr, []);
 });
 
+test("shows contextual help for bare command groups", async () => {
+  for (const group of ["project", "question"]) {
+    const output = capture();
+    assert.equal(await runCli([group], new RecordingCli(), output.io), 0);
+    assert.match(output.stdout[0] ?? "", new RegExp(`Usage: flashlearn ${group} <command>`));
+    assert.deepEqual(output.stderr, []);
+  }
+});
+
+test("shows contextual help for commands and subcommands", async () => {
+  const cases = [
+    [["init", "--help"], "Usage: flashlearn init [directory]"],
+    [["start", "-h"], "Usage: flashlearn start [directory] [options]"],
+    [["help", "project", "set"], "Usage: flashlearn project set <directory>"],
+    [["question", "get", "--help"], "Usage: flashlearn question get <card-id> [options]"],
+  ] as const;
+
+  for (const [args, usage] of cases) {
+    const output = capture();
+    assert.equal(await runCli([...args], new RecordingCli(), output.io), 0);
+    assert.match(output.stdout[0] ?? "", new RegExp(usage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.deepEqual(output.stderr, []);
+  }
+});
+
 test("sets the default project", async () => {
   const cli = new RecordingCli();
   const output = capture();
