@@ -2,7 +2,7 @@
 
 **Owner:** Sagar
 
-Fill in `StorageService`, `StarterCardRepository`, and `StarterReviewRepository` in `src/workstream.ts`. They currently return empty data or a valid default review state, allowing consumers to run before disk persistence is finished.
+`StorageService` in `src/workstream.ts` is the injected boundary the CLI composes. It owns the `.flashlearn/` layout and returns JSON-backed repositories.
 
 | Method | Expected behavior |
 | --- | --- |
