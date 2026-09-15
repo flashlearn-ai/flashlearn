@@ -44,16 +44,20 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
       if (command === "init") {
         await service.initialize(directory);
         io.stdout(`Initialized ${resolve(directory, ".flashlearn")}`);
+        io.stdout(`Next: flashlearn generate ${quoteArgument(directory)}`);
       } else {
         const cards = await service.generate(directory);
         io.stdout(`Generated and stored ${cards.length} card${cards.length === 1 ? "" : "s"}`);
+        io.stdout(`Next: flashlearn start ${quoteArgument(directory)}`);
       }
       return 0;
     }
     if (command === "start") {
       const { directory, options } = parseStart(commandArgs, io.cwd);
       await service.start(directory, options);
-      io.stdout(`FlashLearn running at http://${options.host ?? "127.0.0.1"}:${options.port ?? 4173}`);
+      const url = `http://${options.host ?? "127.0.0.1"}:${options.port ?? 4173}`;
+      io.stdout(`FlashLearn running at ${url}`);
+      io.stdout(`Next: open ${url} in your browser`);
       return 0;
     }
     throw new UsageError(`Unknown command: ${command}`);
@@ -66,6 +70,10 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
     }
     return 1;
   }
+}
+
+function quoteArgument(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function parseDirectoryOnly(args: string[], cwd: string): string {

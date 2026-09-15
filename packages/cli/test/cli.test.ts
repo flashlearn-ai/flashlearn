@@ -39,6 +39,28 @@ test("parses start directory, host, and port", async () => {
   const output = capture();
   assert.equal(await runCli(["start", "demo", "--host", "0.0.0.0", "--port", "8080"], cli, output.io), 0);
   assert.deepEqual(cli.calls, [{ method: "start", root: "/project/demo", options: { host: "0.0.0.0", port: 8080 } }]);
+  assert.deepEqual(output.stdout, [
+    "FlashLearn running at http://0.0.0.0:8080",
+    "Next: open http://0.0.0.0:8080 in your browser",
+  ]);
+});
+
+test("guides first-time users from init to generate", async () => {
+  const output = capture();
+  assert.equal(await runCli(["init", "new repo"], new RecordingCli(), output.io), 0);
+  assert.deepEqual(output.stdout, [
+    "Initialized /project/new repo/.flashlearn",
+    "Next: flashlearn generate '/project/new repo'",
+  ]);
+});
+
+test("guides users from generation to start", async () => {
+  const output = capture();
+  assert.equal(await runCli(["generate", "demo"], new RecordingCli(), output.io), 0);
+  assert.deepEqual(output.stdout, [
+    "Generated and stored 0 cards",
+    "Next: flashlearn start '/project/demo'",
+  ]);
 });
 
 test("returns exit code 2 for invalid arguments", async () => {
