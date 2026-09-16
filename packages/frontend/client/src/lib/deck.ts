@@ -217,19 +217,51 @@ export function scoreOf(run: Run, cards: SessionCard[]): number {
  *  instead of restating an answer the choice list already shows. */
 export function confusedWith(chosen: Choice, card: Card, pool: Card[]): Card | null {
   if (chosen.correct) return null;
-  return pool.find((c) => c.id !== card.id && c.answer === chosen.text) ?? null;
+  const subjects = documentedSubjects(pool);
+  return pool.find((c) => c.id !== card.id && anonymizeAnswer(c.answer, subjects) === chosen.text) ?? null;
+}
+
+const LEADING_SUBJECT = /^([A-Za-z_][A-Za-z0-9_]*)\s+([a-z][a-z0-9]*)\b/;
+const QUESTION_SUBJECT = /`([A-Za-z_][A-Za-z0-9_]*)(?:\(\))?`/;
+
+/** Hide documented symbol names in choices without stripping ordinary prose. */
+export function anonymizeAnswer(answer: string, subjects?: ReadonlySet<string>): string {
+  const trimmed = answer.trim();
+  const named = LEADING_SUBJECT.exec(trimmed);
+  if (!named) return trimmed;
+  const [matched, subject, verb] = named;
+  if (subjects && !subjects.has(subject!)) return trimmed;
+  const rest = trimmed.slice(matched.length);
+  if (!rest.trim()) return trimmed;
+  return `${verb!.charAt(0).toUpperCase()}${verb!.slice(1)}${rest}`;
+}
+
+function documentedSubjects(pool: Card[]): Set<string> {
+  const subjects = new Set<string>();
+  for (const card of pool) {
+    const subject = QUESTION_SUBJECT.exec(card.question)?.[1];
+    if (subject) subjects.add(subject);
+  }
+  return subjects;
 }
 
 export function buildChoices(card: Card, pool: Card[], count = 3, rng: () => number = Math.random): Choice[] {
-  const correct = card.answer;
+  const subjects = documentedSubjects(pool);
+  const correct = anonymizeAnswer(card.answer, subjects);
   const seen = new Set<string>([correct]);
-  const distractors: string[] = [];
+  const candidates: string[] = [];
   for (const other of pool) {
-    if (seen.has(other.answer)) continue;
-    seen.add(other.answer);
-    distractors.push(other.answer);
-    if (distractors.length >= count - 1) break;
+    if (other.id === card.id) continue;
+    const text = anonymizeAnswer(other.answer, subjects);
+    if (seen.has(text)) continue;
+    seen.add(text);
+    candidates.push(text);
   }
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j]!, candidates[i]!];
+  }
+  const distractors = candidates.slice(0, Math.max(0, count - 1));
   const choices: Choice[] = [{ text: correct, correct: true }, ...distractors.map((text) => ({ text, correct: false }))];
   for (let i = choices.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
