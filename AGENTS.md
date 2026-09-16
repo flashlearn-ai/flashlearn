@@ -135,6 +135,8 @@ Contract changes require coordinated review because all five workstreams may dep
 - Stamp `source` from the scanned path and SHA, never from a model reply. A failed request must yield no cards rather than abort a repository-wide run.
 - Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`.
 - Ignore generated, dependency, Git, and FlashLearn state directories when traversing.
+- Skip machine-generated sources during traversal, by filename and by Go's `// Code generated ... DO NOT EDIT.` marker, along with `_test.go` and `CHANGELOG*.md`. Sniff only the head of a file for the marker; generated files can be megabytes.
+- `GenerateOptions` (`subpath`, `maxFiles`) narrows a run. Keep the root at the repository root when scoping, so Git attribution resolves and `source.path` stays repository-relative.
 - Return `GeneratedCard[]`; do not assign IDs, timestamps, or review metadata here.
 
 ### Storage

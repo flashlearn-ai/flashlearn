@@ -1,9 +1,9 @@
 node_modules/
 dist/
 *.tsbuildinfo
-knowledge/
 
-# Ingested repository content and generated cards must never be committed.
+# Ingested repository content, local clones, and generated decks.
+knowledge/
 .flashlearn/
 **/.flashlearn/
 

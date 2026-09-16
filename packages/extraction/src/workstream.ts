@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { join, sep } from "node:path";
 import type { GeneratedCard } from "../../../contracts/index.js";
 import {
   fileSha,
@@ -46,11 +47,33 @@ export type SourceDocument = {
   sha: string;
 };
 
+/**
+ * Narrows a run. Large repositories hold far more files than one deck should
+ * cover, and an endpoint-backed run issues one request per file, so a scoped
+ * run is the normal way to use this against something Kubernetes-sized.
+ */
+export type GenerateOptions = {
+  /** Repository-relative directory to restrict the run to, for example `pkg/kubelet`. */
+  subpath?: string;
+  /** Upper bound on files scanned, guarding against an accidental repository-wide run. */
+  maxFiles?: number;
+};
+
+/** Normalize a subpath to repository-relative POSIX form, rejecting escapes. */
+function normalizeSubpath(subpath: string): string {
+  const cleaned = subpath.split(sep).join("/").replace(/^\.\//, "").replace(/^\/+|\/+$/g, "");
+  if (cleaned.length === 0) return "";
+  if (cleaned === ".." || cleaned.startsWith("../") || cleaned.includes("/../")) {
+    throw new Error(`Subpath must stay inside the repository: ${subpath}`);
+  }
+  return cleaned;
+}
+
 /** Repository ingestion and generation operations owned by extraction. */
 export interface ExtractionWorkstream {
-  scanRepository(root: string): Promise<SourceDocument[]>;
+  scanRepository(root: string, options?: GenerateOptions): Promise<SourceDocument[]>;
   generateFromDocument(document: SourceDocument): Promise<GeneratedCard[]>;
-  generateFromRepository(root: string): Promise<GeneratedCard[]>;
+  generateFromRepository(root: string, options?: GenerateOptions): Promise<GeneratedCard[]>;
 }
 
 /** Skip empty or whitespace-only questions and answers, and drop duplicates. */
@@ -100,9 +123,19 @@ export class ExtractionService implements ExtractionWorkstream {
     private readonly concurrency: number = DEFAULT_CONCURRENCY,
   ) {}
 
-  async scanRepository(root: string): Promise<SourceDocument[]> {
+  /**
+   * Scans the repository, optionally restricted to a subpath. The root stays
+   * the repository root even when scoped, so Git attribution keeps resolving
+   * and `source.path` remains repository-relative.
+   */
+  async scanRepository(root: string, options: GenerateOptions = {}): Promise<SourceDocument[]> {
     const commitSha = await headSha(root);
-    const files = await sourceFiles(root);
+    const subpath = options.subpath ? normalizeSubpath(options.subpath) : "";
+
+    let files = await sourceFiles(root, subpath ? join(root, subpath) : root);
+    files.sort((left, right) => left.localeCompare(right));
+    if (options.maxFiles !== undefined) files = files.slice(0, Math.max(0, options.maxFiles));
+
     const documents = await Promise.all(
       files.map(async (absolutePath) => {
         const path = toRepositoryPath(root, absolutePath);
@@ -121,8 +154,8 @@ export class ExtractionService implements ExtractionWorkstream {
     return usableCards(cards);
   }
 
-  async generateFromRepository(root: string): Promise<GeneratedCard[]> {
-    const documents = await this.scanRepository(root);
+  async generateFromRepository(root: string, options: GenerateOptions = {}): Promise<GeneratedCard[]> {
+    const documents = await this.scanRepository(root, options);
     const generated = await mapWithConcurrency(documents, this.concurrency, async (document) =>
       this.generateFromDocument(document),
     );
@@ -134,6 +167,7 @@ export class ExtractionService implements ExtractionWorkstream {
 export async function generateCards(
   root: string,
   extractor: QuestionExtractor = defaultExtractor(),
+  options: GenerateOptions = {},
 ): Promise<GeneratedCard[]> {
-  return new ExtractionService(extractor).generateFromRepository(root);
+  return new ExtractionService(extractor).generateFromRepository(root, options);
 }
