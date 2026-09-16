@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deckSource, fetchDeck, parseDeck } from "../src/deckSource.js";
+import { deckSource, fetchDeck, parseDeck } from "../client/src/deckSource.js";
 
 const card = {
   id: "k8s-0",
@@ -27,6 +27,10 @@ test("parseDeck drops malformed entries rather than rendering blank cards", () =
 
 test("parseDeck fails when nothing usable survives", () => {
   assert.throws(() => parseDeck([{ id: "bad" }]), /no usable cards/);
+});
+
+test("parseDeck accepts an empty deck, because generating nothing is valid", () => {
+  assert.deepEqual(parseDeck([]), []);
 });
 
 test("deckSource defaults to the bundled fixture", async () => {
