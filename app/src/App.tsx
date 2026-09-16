@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DECK } from "./data";
+import { deckSource } from "./deckSource";
 import { buildChoices, buildSet, groupByTopic, type Card, type Choice, type ReviewResult } from "./lib/deck";
 import { ChatList, Conversation, Rail } from "./components/Teams";
 import { DetailsPane } from "./components/DetailsPane";
@@ -8,7 +8,9 @@ import { BotMessage, FlashCard, Results, TopicChooser, Typing, UserMessage, Welc
 type Phase = "welcome" | "choosing" | "running" | "done";
 
 export default function App() {
-  const groups = useMemo(() => groupByTopic(DECK), []);
+  const [deck, setDeck] = useState<Card[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const groups = useMemo(() => groupByTopic(deck), [deck]);
   const [phase, setPhase] = useState<Phase>("welcome");
   const [session, setSession] = useState<Card[]>([]);
   const [choicesList, setChoicesList] = useState<Choice[][]>([]);
@@ -21,10 +23,23 @@ export default function App() {
 
   useEffect(() => { scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: "smooth" }); }, [step, phase, typing, answers, grades]);
 
+  // Load the configured deck once. A failure is surfaced rather than silently
+  // falling back, so a misconfigured API is obvious instead of looking like
+  // the fixture deck was intended.
+  useEffect(() => {
+    let cancelled = false;
+    deckSource()()
+      .then((cards) => { if (!cancelled) setDeck(cards); })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : String(error));
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   function start(ids: string[], label: string) {
-    const set = buildSet(DECK, ids);
+    const set = buildSet(deck, ids);
     setSession(set);
-    setChoicesList(set.map((c) => buildChoices(c, DECK)));
+    setChoicesList(set.map((c) => buildChoices(c, deck)));
     setAnswers(new Array(set.length).fill(null));
     setGrades(new Array(set.length).fill(null));
     setStep(0);
@@ -72,14 +87,22 @@ export default function App() {
           <div className="messages" ref={scroll}>
             <div className="divider"><span>Today</span></div>
 
-            {phase === "welcome" && (
-              <BotMessage><Welcome cards={DECK.length} topics={groups.length} onStart={() => setPhase("choosing")} /></BotMessage>
+            {loadError !== null && (
+              <BotMessage><span className="bubble">Could not load the deck: {loadError}</span></BotMessage>
             )}
 
-            {phase !== "welcome" && (
+            {loadError === null && deck.length === 0 && (
+              <BotMessage><span className="bubble">Loading cards…</span></BotMessage>
+            )}
+
+            {loadError === null && deck.length > 0 && phase === "welcome" && (
+              <BotMessage><Welcome cards={deck.length} topics={groups.length} onStart={() => setPhase("choosing")} /></BotMessage>
+            )}
+
+            {loadError === null && deck.length > 0 && phase !== "welcome" && (
               <>
                 <BotMessage><span className="bubble">Welcome back, Sara. Pick the topics you want to study.</span></BotMessage>
-                {phase === "choosing" && <BotMessage><TopicChooser groups={groups} total={DECK.length} onStart={start} /></BotMessage>}
+                {phase === "choosing" && <BotMessage><TopicChooser groups={groups} total={deck.length} onStart={start} /></BotMessage>}
                 {(phase === "running" || phase === "done") && (
                   <>
                     <UserMessage text={labels} />
@@ -106,7 +129,7 @@ export default function App() {
             )}
           </div>
         </Conversation>
-        <DetailsPane cards={DECK.length} topics={groups.length} />
+        <DetailsPane cards={deck.length} topics={groups.length} />
       </div>
     </div>
   );
