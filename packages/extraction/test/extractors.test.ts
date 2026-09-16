@@ -102,6 +102,28 @@ test("MarkdownExtractor skips contributor process documents", async () => {
   assert.equal((await markdown.extract({ path: "README.md", sha: "s", content })).length, 1);
 });
 
+test("MarkdownExtractor skips everything under a process directory", async () => {
+  const markdown = new MarkdownExtractor();
+  // Kubernetes ships these, and they describe how to contribute rather than
+  // what the system does. Matching on filename alone missed the directory.
+  const content = "# What type of PR is this?\nAdd one of the following kinds.\n";
+
+  for (const path of [
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/bug-report.md",
+    "staging/src/k8s.io/api/.github/PULL_REQUEST_TEMPLATE.md",
+    "docs/devel/development.md",
+  ]) {
+    assert.deepEqual(await markdown.extract({ path, sha: "s", content }), [], `expected no cards for ${path}`);
+  }
+
+  assert.equal(
+    (await markdown.extract({ path: "docs/architecture.md", sha: "s", content })).length,
+    1,
+    "ordinary docs still produce cards",
+  );
+});
+
 test("long answers truncate on a sentence boundary rather than mid-word", async () => {
   const sentence = "This sentence is padded so the section runs past the answer cap. ";
   const cards = await new MarkdownExtractor().extract({

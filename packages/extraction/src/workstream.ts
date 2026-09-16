@@ -16,6 +16,7 @@ import {
   MarkdownExtractor,
 } from "./extractors.js";
 import { EndpointExtractor, endpointConfigFromEnv } from "./endpoint.js";
+import { validateCards, type ValidationResult } from "./validator.js";
 
 /** Bounded in-flight work per repository run. */
 const DEFAULT_CONCURRENCY = 8;
@@ -74,6 +75,7 @@ export interface ExtractionWorkstream {
   scanRepository(root: string, options?: GenerateOptions): Promise<SourceDocument[]>;
   generateFromDocument(document: SourceDocument): Promise<GeneratedCard[]>;
   generateFromRepository(root: string, options?: GenerateOptions): Promise<GeneratedCard[]>;
+  generateWithRejections(root: string, options?: GenerateOptions): Promise<ValidationResult>;
 }
 
 /** Skip empty or whitespace-only questions and answers, and drop duplicates. */
@@ -149,17 +151,30 @@ export class ExtractionService implements ExtractionWorkstream {
     return documents.sort((left, right) => left.path.localeCompare(right.path));
   }
 
+  /**
+   * Generates cards for one document. Per-document validation cannot see
+   * repeats across files, so cross-file deduplication happens in
+   * `generateFromRepository`.
+   */
   async generateFromDocument(document: SourceDocument): Promise<GeneratedCard[]> {
     const cards = await this.extractor.extract(document);
-    return usableCards(cards);
+    return validateCards(usableCards(cards)).cards;
   }
 
   async generateFromRepository(root: string, options: GenerateOptions = {}): Promise<GeneratedCard[]> {
+    return (await this.generateWithRejections(root, options)).cards;
+  }
+
+  /**
+   * Repository-wide generation that also reports what validation filtered.
+   * The corpus report uses this to show why a run shrank.
+   */
+  async generateWithRejections(root: string, options: GenerateOptions = {}): Promise<ValidationResult> {
     const documents = await this.scanRepository(root, options);
     const generated = await mapWithConcurrency(documents, this.concurrency, async (document) =>
-      this.generateFromDocument(document),
+      usableCards(await this.extractor.extract(document)),
     );
-    return generated.flat();
+    return validateCards(generated.flat());
   }
 }
 

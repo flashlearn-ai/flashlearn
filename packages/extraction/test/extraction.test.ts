@@ -8,8 +8,16 @@ import { ExtractionService, type QuestionExtractor } from "../src/index.js";
 
 async function fixtureRepository(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "flashlearn-extraction-"));
-  await writeFile(join(root, "a.ts"), "/** Adds numbers. */\nexport function add() {}\n");
-  await writeFile(join(root, "notes.md"), "# Overview\nExplains the project.\n");
+  // Fixture prose is realistic rather than minimal: validation rejects answers
+  // that are too short or that merely restate the question.
+  await writeFile(
+    join(root, "a.ts"),
+    "/** Sums the supplied values and returns the running total for the caller. */\nexport function add() {}\n",
+  );
+  await writeFile(
+    join(root, "notes.md"),
+    "# Overview\nDescribes how the service boots, wires its dependencies, and starts serving.\n",
+  );
   await writeFile(join(root, "ignored.txt"), "# Skipped\nNot a supported extension.\n");
   await mkdir(join(root, "node_modules", "pkg"), { recursive: true });
   await writeFile(join(root, "node_modules", "pkg", "dep.ts"), "/** Dep. */\nexport function dep() {}\n");
@@ -30,10 +38,11 @@ test("scanRepository returns sorted supported files and skips ignored directorie
 });
 
 test("generateFromDocument attributes cards and drops duplicate entries", async () => {
+  const body = "Run the CLI and wait for it to report that the local server is listening.";
   const cards = await new ExtractionService().generateFromDocument({
     path: "docs/guide.md",
     sha: "abc123",
-    content: "# Setup\nRun the CLI.\n\n# Setup\nRun the CLI.\n",
+    content: `# Setup\n${body}\n\n# Setup\n${body}\n`,
   });
 
   assert.equal(cards.length, 1, "identical questions from one file collapse");
@@ -62,7 +71,13 @@ test("generateFromRepository honors an injected extractor", async (t) => {
 
   const stub: QuestionExtractor = {
     async extract(input): Promise<GeneratedCard[]> {
-      return [{ question: `Summarize ${input.path}?`, answer: "Stub.", source: { path: input.path, sha: input.sha } }];
+      return [
+        {
+          question: `Summarize ${input.path}?`,
+          answer: `The module at ${input.path} wires its dependencies and exposes them to callers.`,
+          source: { path: input.path, sha: input.sha },
+        },
+      ];
     },
   };
 
@@ -86,7 +101,13 @@ test("generateFromRepository bounds how many documents are in flight", async (t)
       peak = Math.max(peak, inFlight);
       await new Promise((resolve) => setTimeout(resolve, 5));
       inFlight -= 1;
-      return [{ question: `Q ${input.path}`, answer: "A", source: { path: input.path, sha: input.sha } }];
+      return [
+        {
+          question: `Q ${input.path}`,
+          answer: `The module at ${input.path} initializes its state before serving callers.`,
+          source: { path: input.path, sha: input.sha },
+        },
+      ];
     },
   };
 

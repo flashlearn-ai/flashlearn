@@ -137,6 +137,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - Ignore generated, dependency, Git, and FlashLearn state directories when traversing.
 - Skip machine-generated sources during traversal, by filename and by Go's `// Code generated ... DO NOT EDIT.` marker, along with `_test.go` and `CHANGELOG*.md`. Sniff only the head of a file for the marker; generated files can be megabytes.
 - `GenerateOptions` (`subpath`, `maxFiles`) narrows a run. Keep the root at the repository root when scoping, so Git attribution resolves and `source.path` stays repository-relative.
+- `validateCards()` filters cards that would waste review time: locator questions, answers too short to teach, answers restating the question, answers leaning on omitted context, and questions repeated across files. Deduplication is repository-wide, so it runs after all documents are extracted. Use `generateWithRejections()` when a caller needs to report what was filtered; rejections carry a reason so filtering is never silent.
 - Return `GeneratedCard[]`; do not assign IDs, timestamps, or review metadata here.
 
 ### Storage
