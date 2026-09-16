@@ -14,6 +14,25 @@ Return no IDs, timestamps, learning metadata, or UI data. `QuestionExtractor` is
 
 Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`. Go doc comments on exported declarations become cards; `_test.go` files and unexported identifiers are skipped. Traversal ignores `vendor/`, `testdata/`, `third_party/`, and `_output/` alongside the usual generated and dependency directories.
 
+## Scale: generated files and scoped runs
+
+A repository the size of Kubernetes needs filtering and scoping before it produces a deck anyone would study.
+
+Traversal skips machine-generated sources entirely, because generated code describes a generator's output rather than intent. Two signals are used: filenames (`zz_generated*`, `*.pb.go`, `*_generated.go`, `bindata.go`) and Go's canonical `// Code generated ... DO NOT EDIT.` marker. The marker check reads only the first 2 KB, so a multi-megabyte generated file is never read in full just to reject it. `_test.go` files and `CHANGELOG*.md` are skipped during traversal too — every extractor already discarded them, so reading them was wasted I/O.
+
+Filtering happens in traversal rather than inside each extractor, so the endpoint path benefits as much as the deterministic one.
+
+`GenerateOptions` narrows a run:
+
+| Option | Purpose |
+| --- | --- |
+| `subpath` | Repository-relative directory to restrict the run to, for example `pkg/kubelet` |
+| `maxFiles` | Upper bound on files scanned, guarding against an accidental repository-wide run |
+
+The root stays the repository root even when scoped, so Git attribution keeps resolving and `source.path` remains repository-relative. Pointing the root at the subdirectory instead would break `git rev-parse HEAD:<path>` and silently degrade every SHA to the commit fallback.
+
+Scoping matters most for endpoint-backed runs, which issue one request per file. On Kubernetes that is the difference between roughly 13,000 requests and roughly 300.
+
 ## Endpoint-backed generation
 
 Deterministic extractors can only reformat documentation a human already wrote. `EndpointExtractor` sends each code file to a chat-completions endpoint so undocumented code still produces questions.
@@ -38,7 +57,17 @@ Do not commit credentials. `.gitignore` already covers `.env*`.
 Unit tests cover extractor behavior on fixtures; they do not show what a real repository produces. `summarizeCards` reports card counts by extension, the files generating the most cards, answer-length distribution, and repeated questions.
 
 ```bash
-npm run report --workspace @flashlearn/extraction -- /path/to/repo
+npm run report --workspace @flashlearn/extraction -- /path/to/repo [subpath]
 ```
 
 `npm run --workspace` sets the working directory to this package, so pass an absolute path. Capture this before and after an extraction change and include both in the pull request.
+
+Measured on a shallow `kubernetes/kubernetes` clone:
+
+| Run | Cards | Files | Time |
+| --- | --- | --- | --- |
+| Whole repo, before filtering | 35,183 | 7,272 | 5m32s |
+| Whole repo, after filtering | 20,110 | 4,617 | 2m02s |
+| `pkg/kubelet` only | 955 | 306 | 4s |
+
+Before filtering, every top source was machine-generated (`zz_generated.conversion.go` alone produced 495 cards). After, the top sources are hand-written API types.
