@@ -42,7 +42,7 @@ Run the source CLI from the repository root with `npm run cli -- <command>`. The
 
 GitHub CI exposes four independent statuses:
 
-- `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`.
+- `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`. It compares against the merge base, so unrelated packages that land on `main` after a branch is cut do not count against it. The job needs full history (`fetch-depth: 0`).
 - `CI / No Generated Content` rejects generated cards, ingested repository content, and credentials. It matches on path and on content, so a renamed card dump is still caught. The job needs full history (`fetch-depth: 0`).
 - `CI / Validate` runs `npm run check`.
 - `CI / Build` runs the whole-project build and compiled CLI smoke tests.

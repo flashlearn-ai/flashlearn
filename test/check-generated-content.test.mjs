@@ -7,15 +7,16 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/check-generated-content.mjs", import.meta.url));
+const CHILD_ENV = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
 
 function git(cwd, ...args) {
-  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  return execFileSync("git", args, { cwd, encoding: "utf8", env: CHILD_ENV }).trim();
 }
 
 /** Run the gate over staged files, returning exit code and output. */
 function checkStaged(cwd) {
   try {
-    return { code: 0, output: execFileSync("node", [SCRIPT], { cwd, encoding: "utf8" }) };
+    return { code: 0, output: execFileSync("node", [SCRIPT], { cwd, encoding: "utf8", env: CHILD_ENV }) };
   } catch (error) {
     return { code: error.status, output: `${error.stdout ?? ""}${error.stderr ?? ""}` };
   }
@@ -145,7 +146,7 @@ test("compares two refs and ignores files already on the base", async () => {
 
   const result = (() => {
     try {
-      return { code: 0, output: execFileSync("node", [SCRIPT, "main", "feature"], { cwd: root, encoding: "utf8" }) };
+      return { code: 0, output: execFileSync("node", [SCRIPT, "main", "feature"], { cwd: root, encoding: "utf8", env: CHILD_ENV }) };
     } catch (error) {
       return { code: error.status, output: `${error.stdout ?? ""}${error.stderr ?? ""}` };
     }
@@ -158,7 +159,7 @@ test("exits 2 when only one ref is supplied", async () => {
   const root = await repository();
 
   try {
-    execFileSync("node", [SCRIPT, "main"], { cwd: root, encoding: "utf8" });
+    execFileSync("node", [SCRIPT, "main"], { cwd: root, encoding: "utf8", env: CHILD_ENV });
     assert.fail("expected a non-zero exit");
   } catch (error) {
     assert.equal(error.status, 2);
