@@ -1,5 +1,6 @@
 import { formatReport, summarizeCards } from "./report.js";
-import { generateCards, type GenerateOptions } from "./workstream.js";
+import { rejectionSummary } from "./validator.js";
+import { ExtractionService, type GenerateOptions } from "./workstream.js";
 
 /**
  * Report on the cards a repository produces. Run against an external clone to
@@ -11,7 +12,17 @@ import { generateCards, type GenerateOptions } from "./workstream.js";
  * ```
  */
 export async function reportOnRepository(root: string, options: GenerateOptions = {}): Promise<string> {
-  return formatReport(summarizeCards(await generateCards(root, undefined, options)));
+  const { cards, rejected } = await new ExtractionService().generateWithRejections(root, options);
+  const lines = [formatReport(summarizeCards(cards))];
+
+  if (rejected.length > 0) {
+    lines.push("", `Filtered by validation: ${rejected.length}`);
+    for (const row of rejectionSummary(rejected)) {
+      lines.push(`  ${String(row.cards).padStart(6)}  ${row.reason}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 const invokedDirectly = process.argv[1]?.endsWith("corpus.ts") || process.argv[1]?.endsWith("corpus.js");

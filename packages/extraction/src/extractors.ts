@@ -18,9 +18,19 @@ const META_DOCUMENTS = new Set([
   "security.md",
 ]);
 
+/**
+ * Repository process directories. Everything under `.github/` is contributor
+ * workflow — pull request templates, issue forms, workflow definitions — and
+ * describes how to contribute rather than what the system does.
+ */
+const META_DIRECTORIES = ["/.github/", "/docs/devel/"];
+
 function isMetaDocument(path: string): boolean {
-  const name = path.toLowerCase().split("/").pop() ?? "";
-  return META_DOCUMENTS.has(name) || name.startsWith("claude");
+  const lower = path.toLowerCase();
+  if (META_DIRECTORIES.some((directory) => `/${lower}`.includes(directory))) return true;
+
+  const name = lower.split("/").pop() ?? "";
+  return META_DOCUMENTS.has(name) || name.startsWith("claude") || name.startsWith("pull_request_template") || name.startsWith("issue_template");
 }
 
 /** Truncate on a sentence boundary when possible, falling back to a word boundary. */

@@ -33,6 +33,31 @@ The root stays the repository root even when scoped, so Git attribution keeps re
 
 Scoping matters most for endpoint-backed runs, which issue one request per file. On Kubernetes that is the difference between roughly 13,000 requests and roughly 300.
 
+## Card validation
+
+Filtering decides which files are read; validation decides which cards survive. Extractors build cards from whatever a file happens to contain, so a run produces some cards that would waste a reviewer's time. `validateCards()` enforces five rules:
+
+| Rule | Rejects |
+| --- | --- |
+| `locator` | "Which file defines the ... ?" — filesystem trivia, not understanding |
+| `shortAnswer` | Answers under 25 characters, too thin to teach anything |
+| `restatement` | Answers whose content words mostly repeat the question |
+| `danglingContext` | Answers opening with `this`, `it`, `the following`, `see above`, and similar references to text the card does not carry |
+| duplicate question | The same question generated from more than one file |
+
+The restatement check splits camelCase identifiers and strips common suffixes, so `AllocationManager` restated as "manages allocation" is caught. The threshold is 60% shared content words.
+
+Deduplication is repository-wide and therefore runs after every document is extracted; per-file deduplication cannot see a helper documented identically in several packages.
+
+Every rejected card is returned with a reason. `generateWithRejections()` exposes them and the corpus report prints a breakdown, so filtering is never silent:
+
+```text
+Filtered by validation: 212
+     141  locator question
+      54  duplicate question across files
+      17  answer restates the question
+```
+
 ## Endpoint-backed generation
 
 Deterministic extractors can only reformat documentation a human already wrote. `EndpointExtractor` sends each code file to a chat-completions endpoint so undocumented code still produces questions.
