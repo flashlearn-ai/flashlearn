@@ -25,10 +25,7 @@ export function Rail() {
 }
 
 const CONTACTS: { name: string; time: string; prev: string; bg: string; initials: string; presence: "avail" | "busy" | "away" }[] = [
-  { name: "Jenny Liu", time: "3:21 PM", prev: "brb gotta get my charger", bg: "#b07fb0", initials: "JL", presence: "avail" },
-  { name: "David Gamero", time: "3:35 PM", prev: "qastion.netlify.app", bg: "#5b7fb0", initials: "DG", presence: "busy" },
-  { name: "Manasa Chinta", time: "3:30 PM", prev: "manasachi", bg: "#a3855d", initials: "MC", presence: "away" },
-  { name: "Sagar Poojary", time: "3:26 PM", prev: "sagarpoojary", bg: "#4f8a7b", initials: "SP", presence: "avail" },
+  { name: "Engineering", time: "", prev: "Explore your codebase", bg: "#5b7fb0", initials: "EN", presence: "avail" },
 ];
 
 export function ChatList() {
@@ -65,7 +62,7 @@ export function Conversation({ children }: { children: ReactNode }) {
       <div className="conv-tabs"><span className="on">Chat</span><span>Shared</span><span>Activity</span></div>
       {children}
       <div className="composer">
-        <div className="field">Type a message</div>
+        <div className="field">Use the study controls above</div>
         <div className="bar"><span className="aa">Aa</span><span className="gif">GIF</span><span className="send"><Send /></span></div>
       </div>
     </main>

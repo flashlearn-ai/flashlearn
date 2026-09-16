@@ -1,4 +1,8 @@
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createWebServer } from "./server.js";
 import type { Card, ReviewResult, ReviewState } from "../../../contracts/index.js";
 
 export interface FrontendServices {
@@ -39,18 +43,15 @@ export class MockFrontendServices implements FrontendServices {
   }
 }
 
-/** Sara: fill in the HTTP routes and page without adding business logic. */
+/** Serves the production UI and injected application services from one origin. */
 export class FrontendService implements FrontendWorkstream {
-  createServer(_services: FrontendServices): Server {
-    // TODO(Sara): route requests using the injected services.
-    return createServer((_request, response) => {
-      response.writeHead(204);
-      response.end();
-    });
+  constructor(private readonly webRoot = fileURLToPath(new URL("../dist/web/", import.meta.url))) {}
+
+  createServer(services: FrontendServices): Server {
+    return createWebServer(services, this.webRoot);
   }
 
   renderPage(): string {
-    // TODO(Sara): return the fake Teams HTML application shell.
-    return "";
+    return readFileSync(join(this.webRoot, "index.html"), "utf8");
   }
 }

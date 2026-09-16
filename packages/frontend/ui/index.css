@@ -1,3 +1,13 @@
+.mode-label{padding:12px;border-radius:8px;background:#edecfa;font-size:13px;color:#3b3a39;margin-bottom:20px}
+.study-error{padding:16px;background:#fdeef1;color:#96253a;border-radius:8px;margin-bottom:12px}
+.study-error button{margin-left:12px}
+.study-answer{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#f4f3f1;border-radius:8px;line-height:1.6}
+.study-source{padding-top:16px;font-size:12px;overflow-wrap:anywhere;color:#5f5e5c}
+.study-content .qcard{width:100%;max-width:640px}
+.study-content .grade-btns{display:flex;flex-wrap:wrap;gap:8px}
+.study-content button:disabled{opacity:.55;cursor:wait}
+button:focus-visible{outline:3px solid #3f63d6;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 :root{
   /* neutrals (Teams-like chrome) */
   --n-0:#ffffff; --n-2:#faf9f8; --n-4:#f4f3f1; --line:#e4e4e8; --line-2:#eeeef2; --sep:#c9ccd4;
@@ -260,4 +270,9 @@ img{ -webkit-user-drag:none; user-select:none }
   .chat{justify-content:center;padding:9px 0;margin:0}
   .window{height:calc(100vh - 24px)} .stage{padding:12px}
   .messages{padding:18px 14px 8px}
+}
+@media(max-width:600px){
+  .list,.composer,.conv-head .actions{display:none}
+  .study-content .qtop{flex-wrap:wrap;gap:10px}
+  .study-content .qtext{font-size:21px}
 }

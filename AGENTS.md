@@ -154,6 +154,12 @@ Contract changes require coordinated review because all five workstreams may dep
 
 ### Frontend
 
+- The canonical UI is `packages/frontend/ui/`; do not recreate a standalone root `app/`.
+- Import-boundary validation scans both `src/` and `ui/`, including `.tsx` files. UI dependencies belong in the frontend workspace manifest and root lockfile.
+- `FrontendService` serves the built `dist/web` UI plus injected HTTP services; `createFlashLearnServer()` delegates to it for CLI compatibility.
+- Live UI uses `/api` and server-returned review dates. Never substitute demo cards for API errors or calculate scheduling in the browser.
+- `build:demo` emits `packages/frontend/dist/demo` for GitHub Pages, using only hand-authored public samples in `test/fixtures/demo.ts`. Demo data is clearly labeled and progress is session-only. Never bundle `.flashlearn` data or endpoint credentials.
+- Keep Pages asset paths relative, verify both live and demo modes with `test:browser`, and upload only `dist/demo` in the Pages workflow.
 - `FrontendServices` is the injected boundary used by HTTP handlers.
 - Keep endpoint payloads aligned with `contracts/http.md`.
 - The local page must work on desktop and mobile.

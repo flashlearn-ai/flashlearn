@@ -65,6 +65,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Build static sample demo
+        run: npm run build:demo --workspace @flashlearn/frontend
+      - name: Install browser for frontend smoke tests
+        run: npm exec --workspace @flashlearn/frontend -- playwright install --with-deps chromium
+      - name: Test local UI and Pages demo
+        run: npm run test:browser --workspace @flashlearn/frontend
       - name: Smoke test built CLI
         run: |
           project="$(mktemp -d)"

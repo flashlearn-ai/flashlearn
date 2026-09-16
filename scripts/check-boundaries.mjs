@@ -5,15 +5,19 @@ const packageNames = ["cli", "extraction", "storage", "learning", "frontend"];
 const violations = [];
 
 async function TypeScriptFiles(directory) {
-  const entries = await readdir(directory, { withFileTypes: true });
+  const entries = await readdir(directory, { withFileTypes: true }).catch((error) => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
   return (await Promise.all(entries.map(async (entry) => {
     const path = join(directory, entry.name);
-    return entry.isDirectory() ? TypeScriptFiles(path) : entry.name.endsWith(".ts") ? [path] : [];
+    return entry.isDirectory() ? TypeScriptFiles(path) : /\.tsx?$/.test(entry.name) ? [path] : [];
   }))).flat();
 }
 
 for (const owner of packageNames) {
-  for (const path of await TypeScriptFiles(join("packages", owner, "src"))) {
+  const files = (await Promise.all(["src", "ui"].map((directory) => TypeScriptFiles(join("packages", owner, directory))))).flat();
+  for (const path of files) {
     const source = await readFile(path, "utf8");
     for (const dependency of packageNames) {
       if (dependency === owner) continue;

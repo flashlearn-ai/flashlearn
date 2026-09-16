@@ -49,12 +49,24 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
 5. 🔴 **Frontend / fake Teams** (`packages/frontend`)
    - **Status:** 🚧 In Progress
    - **Owner:** Sara
-   - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
+   - **Features:** Teams-style React UI, answer reveal, four review actions, source attribution, HTTP/static server, and a public sample-data web demo
    - **Dependencies:** Shared contracts only
-   - **Current:** Starter HTTP endpoints and a minimal reveal page demonstrate the integration boundary
-   - **Next:** Complete the fake Teams experience, review controls, and frontend behavior
+   - **Current:** Teams-style React UI and HTTP server are consolidated in `packages/frontend`; live review actions use the API, and a separate static sample demo targets GitHub Pages
+   - **Next:** Owner review and deployment of the integrated UI and sample demo
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
+
+### Try the web demo
+
+```bash
+npm ci
+npm run build:demo --workspace @flashlearn/frontend
+npm run preview:demo --workspace @flashlearn/frontend
+```
+
+Open the printed preview URL (port 4174). This is a static demo with hand-authored sample cards from an imaginary repository; it makes no API calls and keeps progress only for the session. The `Pages Demo` workflow deploys this build after merges to `main`. Set **Settings → Pages → Source** to **GitHub Actions** to enable deployment. The site is expected at [flashlearn-ai.github.io/flashlearn](https://flashlearn-ai.github.io/flashlearn/).
+
+For real project data, run the normal root build and `flashlearn start`: the frontend serves the React UI and API together, with scheduling and persistence provided by CLI-injected services. See [frontend development and testing](packages/frontend/README.md).
 
 David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
 
