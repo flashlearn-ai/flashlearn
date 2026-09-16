@@ -10,7 +10,7 @@
   --grad-dark:linear-gradient(140deg,var(--forest),#132a55);
   --emerald-soft:#e7f5ec; --emerald-line:#c9e8d6;
   /* semantic feedback */
-  --ok:#12965a; --ok-2:#0c7a48; --ok-soft:#e7f5ec;
+  --ok:#12965a; --ok-soft:#e7f5ec;
   --bad:#c4314b; --bad-soft:#fdeef1;
   --avail:#3aa657; --busy:#c50f1f; --away:#f2b73d;
   /* type */
@@ -60,6 +60,9 @@ img{ -webkit-user-drag:none; user-select:none }
 .chat.on .name{color:var(--teams)}
 .chat .time{font-size:11px;color:var(--faint);flex-shrink:0}
 .chat .prev{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat .prev .you{color:var(--faint)}
+.chat.unread .prev{color:var(--ink);font-weight:600}
+.chat.unread .pip{width:7px;height:7px;border-radius:50%;background:var(--teams);flex-shrink:0}
 
 .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex-shrink:0;position:relative;overflow:visible}
 .avatar .dot{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;border:2px solid #fff}
@@ -133,12 +136,12 @@ img{ -webkit-user-drag:none; user-select:none }
 .tmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .tlabel{font-weight:600;font-size:14px;color:var(--ink)}
 .tmastery{display:flex;align-items:center;gap:8px}
-.tmastery .dots{display:flex;gap:3px}
-.tmastery .dots i{width:6px;height:6px;border-radius:50%;background:#e0e4df}
-.tmastery .dots i.on{background:var(--a)}
 .tmastery em{font-style:normal;font-size:10.5px;color:var(--faint)}
 .tcheck{width:24px;height:24px;border-radius:50%;border:1.6px solid #cdd3cd;display:grid;place-items:center;color:#fff;flex-shrink:0;transition:.16s}
 .topic.sel .tcheck{background:var(--a);border-color:var(--a);animation:pop .3s var(--spring)}
+.lone{margin:0 0 4px;font-size:15px;line-height:1.5;color:var(--ink);background:var(--emerald-soft);border:1px solid var(--emerald-line);border-radius:12px 4px 12px 4px;padding:12px 14px}
+.welcome .cmd{margin:14px 0 0;font-family:var(--mono);font-size:12.5px;color:var(--mint);background:rgba(0,0,0,.28);border:1px solid rgba(143,240,189,.22);border-radius:8px 3px 8px 3px;padding:9px 12px;display:inline-block}
+.capped{margin:9px 2px 0;font-size:11px;line-height:1.5;color:var(--faint);text-align:center}
 .start{width:100%;margin-top:15px;background:var(--grad-dark);color:#fff;border:1.5px solid transparent;border-radius:16px 6px 16px 6px;padding:13px;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .18s var(--spring),box-shadow .18s,background .2s,color .2s,border-color .2s}
 .start:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 14px 30px -14px rgba(31,79,176,.55)}
 .start:disabled{background:transparent;color:var(--faint);border-color:var(--line);cursor:default}
@@ -148,7 +151,6 @@ img{ -webkit-user-drag:none; user-select:none }
 .qtop{position:relative;display:flex;align-items:center;justify-content:space-between}
 .qbrand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:12px;color:var(--forest)}
 .qbrand .m{width:22px;height:22px;border-radius:8px 3px 8px 3px;overflow:hidden;background:var(--grad-dark);display:grid;place-items:center}
-.qtag{font-size:10px;letter-spacing:1.3px;font-weight:700;color:var(--emerald-2);background:var(--emerald-soft);border:1px solid var(--emerald-line);padding:5px 11px;border-radius:10px 4px 10px 4px}
 .qmeta{position:relative;display:flex;align-items:center;gap:11px;margin:15px 0 3px}
 .qmeta .frac{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.5px;flex-shrink:0}
 .qseg{flex:1;display:flex;gap:3px}
@@ -173,9 +175,9 @@ img{ -webkit-user-drag:none; user-select:none }
 .qchoice.wrong{border-color:var(--bad);background:var(--bad-soft);font-weight:600}
 .qchoice.wrong .k{background:var(--bad);color:#fff}
 .qchoice.dim{opacity:.4}
-.qfb{position:relative;display:flex;align-items:center;gap:9px;border-radius:14px 6px 14px 6px;padding:11px 13px;margin:15px 0 0;font-weight:600;font-size:13.5px;animation:rise .32s var(--ease) both}
-.qfb.ok{background:var(--ok-soft);color:var(--ok-2)}
-.qfb.no{background:var(--bad-soft);color:var(--bad)}
+/* A miss names the card it was confused with — the one thing the choice list can't show. */
+.confused{margin:14px 0 0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.confused b{color:var(--ink)}
 .qsrc{position:relative;display:flex;align-items:center;gap:7px;width:100%;font-size:10.5px;color:var(--faint);margin:16px 0 0;padding:12px 0 0;border-top:1px dashed var(--line);font-family:var(--mono);background:none;text-align:left;transition:color .15s}
 .qsrc:hover{color:var(--muted)}
 .qsrc .chev{margin-left:auto;transition:transform .22s var(--ease)}
@@ -199,26 +201,18 @@ img{ -webkit-user-drag:none; user-select:none }
 .g-hard:hover{border-color:#c78a1f;background:#fdf3e1;color:#a3701a}
 .g-easy:hover{border-color:var(--azure);background:#eef2fd;color:var(--azure-2)}
 .graded{margin-top:13px;font-size:12px;color:var(--muted)}
+.graded.unrecorded{color:var(--bad)}
 
 /* ---------------- results ---------------- */
 .results{position:relative;max-width:420px;border-radius:28px 8px 28px 8px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh-2);background:linear-gradient(180deg,#fff,#fbfdfb);padding:22px;text-align:left;animation:cardIn .5s var(--spring) both}
 .results-top{display:flex;align-items:center;gap:16px}
-.results .ring{width:104px;height:104px;position:relative;display:grid;place-items:center;flex-shrink:0}
 .results .ring .val{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--forest)}
 .results-head h3{font-family:var(--serif);font-size:19px;color:var(--forest);margin:0 0 4px}
 .results-head .sub{color:var(--muted);font-size:12.5px;line-height:1.5}
-.rsec{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2)}
-.rsec h4{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint);margin:0 0 10px;font-weight:700}
-.schedule{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.sch{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:5px 12px;background:#fff}
-.sch b{font-family:var(--serif);font-size:15px}
-.sch.tm b{color:var(--emerald-2)}.sch.wk b{color:var(--azure-2)}
-.schedule .note{font-size:10.5px;color:var(--faint)}
 .missed{display:flex;flex-direction:column;gap:8px}
 .miss{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-2)}
 .miss .mx{width:20px;height:20px;flex-shrink:0;border-radius:50%;background:var(--bad-soft);color:var(--bad);display:grid;place-items:center}
 .miss .mq{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.miss .msrc{font-family:var(--mono);font-size:10px;color:var(--faint);flex-shrink:0}
 .results .again{width:100%;margin-top:18px}
 .confetti{position:absolute;top:0;left:0;right:0;height:0;pointer-events:none}
 .confetti i{position:absolute;top:0;width:8px;height:12px;border-radius:2px;opacity:0;animation:fall 1.4s var(--ease) forwards}
@@ -241,6 +235,22 @@ img{ -webkit-user-drag:none; user-select:none }
 .dstat{flex:1;border:1px solid var(--line);border-radius:12px 5px 12px 5px;padding:11px 8px;text-align:center;background:#fff}
 .dstat b{display:block;font-family:var(--serif);font-size:21px;color:var(--forest);line-height:1}
 .dstat span{font-size:10px;color:var(--faint);letter-spacing:.3px;text-transform:uppercase}
+/* session progress — the pane tracks the run, then keeps the summary after it ends */
+.prog{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.ring{position:relative;flex-shrink:0;display:grid;place-items:center}
+.ring .rval{font-family:var(--serif);font-size:17px;color:var(--forest);letter-spacing:-.3px}
+.pline{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.pline b{color:var(--ink);font-size:14px}
+.runs{display:flex;flex-direction:column;gap:8px}
+.run{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-2)}
+.run .lab{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.run.now .lab{font-weight:700;color:var(--ink)}
+.run.next{opacity:.45}
+.run .sc{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.run .bars{display:flex;gap:2px}
+.run .bars i{width:12px;height:5px;border-radius:2px;background:#e0e5e0;transition:background .3s}
+.run .bars i.ok{background:var(--emerald)}
+.run .bars i.no{background:var(--bad)}
 
 /* ---------------- motion ---------------- */
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}

@@ -24,11 +24,14 @@ export function Rail() {
   );
 }
 
-const CONTACTS: { name: string; time: string; prev: string; bg: string; initials: string; presence: "avail" | "busy" | "away" }[] = [
-  { name: "Jenny Liu", time: "3:21 PM", prev: "brb gotta get my charger", bg: "#b07fb0", initials: "JL", presence: "avail" },
-  { name: "David Gamero", time: "3:35 PM", prev: "qastion.netlify.app", bg: "#5b7fb0", initials: "DG", presence: "busy" },
-  { name: "Manasa Chinta", time: "3:30 PM", prev: "manasachi", bg: "#a3855d", initials: "MC", presence: "away" },
-  { name: "Sagar Poojary", time: "3:26 PM", prev: "sagarpoojary", bg: "#4f8a7b", initials: "SP", presence: "avail" },
+/** Invented chrome for the Teams shell: these are not real messages and nothing
+ *  reads them. Preview lines must not state results, versions or benchmarks that
+ *  a reader could mistake for something FlashLearn actually produced. */
+const CONTACTS: { name: string; time: string; prev: string; bg: string; initials: string; presence: "avail" | "busy" | "away"; you?: boolean; unread?: boolean }[] = [
+  { name: "David Gamero", time: "3:35 PM", prev: "can you take the frontend endpoints today?", bg: "#5b7fb0", initials: "DG", presence: "busy", unread: true },
+  { name: "Manasa Chinta", time: "3:30 PM", prev: "pushed the doc-comment extractor, give it a spin", bg: "#a3855d", initials: "MC", presence: "away" },
+  { name: "Sagar Poojary", time: "3:26 PM", prev: "perfect, atomic writes are exactly it", bg: "#4f8a7b", initials: "SP", presence: "avail", you: true },
+  { name: "Jenny Liu", time: "3:21 PM", prev: "brb gotta find my charger", bg: "#b07fb0", initials: "JL", presence: "avail" },
 ];
 
 export function ChatList() {
@@ -42,9 +45,13 @@ export function ChatList() {
         <span className="meta"><span className="row1"><span className="name">FlashLearn</span><span className="time">now</span></span><span className="prev">Ready when you are</span></span>
       </div>
       {CONTACTS.map((c) => (
-        <div className="chat" key={c.name}>
+        <div className={`chat${c.unread ? " unread" : ""}`} key={c.name}>
           <Avatar bg={c.bg} initials={c.initials} presence={c.presence} />
-          <span className="meta"><span className="row1"><span className="name">{c.name}</span><span className="time">{c.time}</span></span><span className="prev">{c.prev}</span></span>
+          <span className="meta">
+            <span className="row1"><span className="name">{c.name}</span><span className="time">{c.time}</span></span>
+            <span className="prev">{c.you && <span className="you">You: </span>}{c.prev}</span>
+          </span>
+          {c.unread && <span className="pip" />}
         </div>
       ))}
     </aside>
@@ -58,7 +65,7 @@ export function Conversation({ children }: { children: ReactNode }) {
         <Avatar size={38} bot presence="avail" />
         <span className="who">
           <span className="title-row"><span className="title">FlashLearn</span><span className="badge">APP</span></span>
-          <span className="sub"><span className="p" />Available · turns your repo into a quiz</span>
+          <span className="sub"><span className="p" />Available · turns code and docs into a quiz</span>
         </span>
         <span className="actions"><Video size={19} /><Phone size={19} /><AddPeople size={19} /><More size={19} /></span>
       </header>

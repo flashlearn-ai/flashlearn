@@ -1,8 +1,8 @@
 import type { Card } from "./lib/deck";
-import { DECK } from "./data";
+import { SAMPLE_DECK } from "./data";
 
 /**
- * Where the app gets its cards. The bundled `DECK` is a fixture so the UI runs
+ * Where the app gets its cards. The bundled `SAMPLE_DECK` is a fixture so the UI runs
  * with no backend; a real deck comes from the CLI's HTTP API.
  *
  * Selected by `VITE_DECK_SOURCE`:
@@ -32,6 +32,9 @@ function isCard(value: unknown): value is Card {
  */
 export function parseDeck(payload: unknown): Card[] {
   if (!Array.isArray(payload)) throw new Error("Expected the deck to be an array of cards");
+  // An empty array is a real answer: the project generated no cards. Only a
+  // payload that had entries and lost all of them indicates a broken deck.
+  if (payload.length === 0) return [];
 
   const cards = payload.filter(isCard);
   if (cards.length === 0) throw new Error("The deck contained no usable cards");
@@ -52,7 +55,7 @@ export async function fetchDeck(url: string): Promise<Card[]> {
 export function deckSource(setting: string | undefined = import.meta.env?.VITE_DECK_SOURCE): DeckSource {
   const configured = setting?.trim();
 
-  if (!configured || configured === "fixture") return async () => DECK;
+  if (!configured || configured === "fixture") return async () => SAMPLE_DECK;
   if (configured === "api") return async () => fetchDeck(API_DECK);
   return async () => fetchDeck(configured);
 }

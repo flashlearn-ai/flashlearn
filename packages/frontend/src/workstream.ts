@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import type { Card, ReviewResult, ReviewState } from "../../../contracts/index.js";
 
 export interface FrontendServices {
@@ -14,7 +14,7 @@ export interface FrontendWorkstream {
   renderPage(): string;
 }
 
-/** Simple mock data source Sara can use while building the UI. */
+/** Simple mock data source for building the UI without a generated project. */
 export class MockFrontendServices implements FrontendServices {
   async listCards(): Promise<Card[]> {
     return [];
@@ -36,21 +36,5 @@ export class MockFrontendServices implements FrontendServices {
       reviewCount: 0,
       correctCount: 0,
     };
-  }
-}
-
-/** Sara: fill in the HTTP routes and page without adding business logic. */
-export class FrontendService implements FrontendWorkstream {
-  createServer(_services: FrontendServices): Server {
-    // TODO(Sara): route requests using the injected services.
-    return createServer((_request, response) => {
-      response.writeHead(204);
-      response.end();
-    });
-  }
-
-  renderPage(): string {
-    // TODO(Sara): return the fake Teams HTML application shell.
-    return "";
   }
 }

@@ -2,6 +2,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Local design-session scratch, captured UI screenshots, and OS cruft.
+.superpowers/
+shots/
+.DS_Store
+
 # Ingested repository content, local clones, and generated decks.
 knowledge/
 .flashlearn/

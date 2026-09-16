@@ -20,15 +20,15 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, `project set/show/status`, `question list/get`, structured output, configuration, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
    - **Dependencies:** May depend on all packages
    - **Current:** Commands, saved `FLASHLEARN_PROJECT` configuration, text/JSON/YAML queries, package wiring, and integration tests are implemented
-   - **Next:** Integrate completed owner packages as they merge
+   - **Next:** Expose extraction's `GenerateOptions` (`subpath`, `maxFiles`) through `flashlearn generate`, which cannot currently scope a run (gap 5)
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
    - **Status:** ✅ Done
    - **Owner:** Manasa
    - **Features:** Repository scanning, Markdown headings, JSDoc, Go doc comments, undocumented export signatures, answer cleanup, and source attribution (`path`, `sha`)
    - **Dependencies:** Shared contracts only
-   - **Current:** The deterministic extraction pipeline is implemented and tested across Go, JavaScript, JSX, Markdown, TypeScript, and TSX sources
-   - **Next:** Add agentic AI generation as a separate capability when its local-first model and provider contract are defined
+   - **Current:** The deterministic extraction pipeline is implemented and tested across Go, JavaScript, JSX, Markdown, TypeScript, and TSX sources, skips machine-generated sources, and scopes a run to a subpath
+   - **Next:** Add agentic AI generation as a separate capability when its local-first model and provider contract are defined; decide what `sha` should hold when the input is not a Git repository (gap 6)
 
 3. 🟠 **Storage / repositories** (`packages/storage`)
    - **Status:** ✅ Done
@@ -36,7 +36,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** Card persistence, review-state persistence, schema validation, atomic JSON writes, path helpers, and repository abstractions
    - **Dependencies:** Shared contracts only
    - **Current:** Production `StorageService`, card repositories, and review repositories implement the locked interfaces under `.flashlearn/`
-   - **Next:** Add migrations when persisted schemas evolve and broaden malformed-data and isolation tests
+   - **Next:** Add migrations when persisted schemas evolve, broaden malformed-data and isolation tests, and decide whether card-quality feedback gets a store (gap 3)
 
 4. 🟣 **Learning engine** (`packages/learning`)
    - **Status:** ✅ Done
@@ -44,17 +44,28 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** Review scheduling, spaced-repetition logic, due-card selection, and easy/hard/correct/incorrect scoring
    - **Dependencies:** Shared contracts only
    - **Current:** Deterministic review scheduling, scoring, and overdue-first due-card selection are implemented and tested
-   - **Next:** Connect the fake Teams review controls to the persisted scheduling flow
+   - **Next:** Decide what "mastered" means before any surface reports it (gap 4). The review controls are connected: the client submits grades and renders the `nextReview` this package returns, rather than computing an interval of its own
 
 5. 🔴 **Frontend / fake Teams** (`packages/frontend`)
    - **Status:** 🚧 In Progress
    - **Owner:** Sara
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
-   - **Current:** Starter HTTP endpoints and a minimal reveal page demonstrate the integration boundary
-   - **Next:** Complete the fake Teams experience, review controls, and frontend behavior
+   - **Current:** Implemented but **not merged**, so this stays in progress under the rule below. On a branch: the Node server serves the locked endpoints and the built Teams client in `client/`, which runs a topic-ordered review session against `GET /api/cards` and `POST /api/review`, caps a session at `SESSION_LIMIT`, explains a miss from the source it cites, and distinguishes loading, empty and failed decks
+   - **Next:** Merge, then revisit gaps 1 to 4, none of which the frontend can close alone
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
+
+### Known Gaps
+
+Found by running FlashLearn against real repositories and against plain, non-Git folders. Each needs a decision from an owner other than the frontend, so each is recorded here rather than scaffolded in code: a stub that can only return nothing is dead weight, and pre-deciding another package's interface is not the frontend's call. Where data is missing the client shows nothing; it never guesses.
+
+1. **A deck has no identity.** Topic labels such as `Metrics` or `Framework` are generic, and `GET /api/cards` carries only repository-relative paths, so the client cannot say which project it is reviewing. The CLI owns the project root and is the only part that knows. Note that input may be a plain folder, so this cannot rely on a Git remote.
+2. **A live card carries no excerpt.** An incorrect answer opens the source panel, because the code is the explanation, but `Card.source` holds only `path` and `sha`. Only the sample deck ships excerpts; a live card shows attribution without a snippet. Carrying them would change `GeneratedCard`.
+3. **Card-quality feedback has nowhere to go.** Marking a generated card wrong is the signal needed to tune extraction at scale. There is no endpoint and no store for it, so the control is not built: a button that discards its input while thanking the user is worse than its absence.
+4. **Mastery is not reported.** The topic chooser shows card counts because nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
+5. **`flashlearn generate` cannot scope a run.** Extraction supports `GenerateOptions` (`subpath`, `maxFiles`), but the CLI's `generateCards(root)` takes no options, so a whole-repository run is the only thing reachable from the command line. The capability exists and is unreachable; this needs CLI wiring only.
+6. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
 
 David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
 
@@ -190,6 +201,8 @@ npm run cli -- start . --host localhost --port 4173
 ```
 
 The root `cli` script runs with the repository as its working directory and builds the package dependencies first. Arguments after `--` are passed to FlashLearn.
+
+`flashlearn start` serves the browser client that `packages/frontend` builds into `client/dist`, so run a build before starting. To work on the client with hot reload instead, run `npm run dev --workspace @flashlearn/frontend` on port 5173; it proxies `/api` to a `flashlearn start` server on port 4173, overridable with `FLASHLEARN_API`.
 
 The CLI returns exit code `0` for success, `1` for execution failures, and `2` for invalid commands or arguments. See `packages/cli/README.md` for its dependency-injection and integration-test structure.
 
