@@ -7,15 +7,16 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/check-package-scope.mjs", import.meta.url));
+const CHILD_ENV = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
 
 function git(cwd, ...args) {
-  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  return execFileSync("git", args, { cwd, encoding: "utf8", env: CHILD_ENV }).trim();
 }
 
 /** Run the scope check, returning its exit code and combined output. */
 function checkScope(cwd, ...args) {
   try {
-    return { code: 0, output: execFileSync("node", [SCRIPT, ...args], { cwd, encoding: "utf8" }) };
+    return { code: 0, output: execFileSync("node", [SCRIPT, ...args], { cwd, encoding: "utf8", env: CHILD_ENV }) };
   } catch (error) {
     return { code: error.status, output: `${error.stdout ?? ""}${error.stderr ?? ""}` };
   }
