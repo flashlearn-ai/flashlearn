@@ -8,7 +8,7 @@ export function Mark({ size = 18, radius = "50%" }: { size?: number; radius?: nu
   if (!ok) return <Bolt size={size * 0.62} />;
   return (
     <img
-      src="/flashlearn-icon.png"
+      src={`${import.meta.env.BASE_URL}flashlearn-icon.png`}
       width={size}
       height={size}
       alt=""

@@ -184,6 +184,8 @@ Contract ownership is:
 
 ## Development
 
+For packaging, publishing, and website deployment, see the [npm and GitHub Pages release runbook](docs/release-readiness.md). `npm run release:check` builds and tests the installable CLI tarball. `npm run site:build` builds the landing page, docs, and sample demo; `npm run site:preview` serves them locally at `http://127.0.0.1:4182/flashlearn/`. Publishing and deployment require the owner setup described in the runbook.
+
 ```bash
 npm install
 npm run check

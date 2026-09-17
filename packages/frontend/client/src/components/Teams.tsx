@@ -19,7 +19,7 @@ export function Rail() {
       <span className="rail-item"><People /> Teams</span>
       <span className="rail-item"><Calendar /> Calendar</span>
       <span className="rail-item"><Phone /> Calls</span>
-      <span className="rail-me"><Avatar size={30} bg="#4b53bc" initials="SW" presence="avail" /></span>
+      <span className="rail-me"><Avatar size={30} bg="#4b53bc" initials="S" presence="avail" /></span>
     </nav>
   );
 }
@@ -28,10 +28,10 @@ export function Rail() {
  *  reads them. Preview lines must not state results, versions or benchmarks that
  *  a reader could mistake for something FlashLearn actually produced. */
 const CONTACTS: { name: string; time: string; prev: string; bg: string; initials: string; presence: "avail" | "busy" | "away"; you?: boolean; unread?: boolean }[] = [
-  { name: "David Gamero", time: "3:35 PM", prev: "can you take the frontend endpoints today?", bg: "#5b7fb0", initials: "DG", presence: "busy", unread: true },
-  { name: "Manasa Chinta", time: "3:30 PM", prev: "pushed the doc-comment extractor, give it a spin", bg: "#a3855d", initials: "MC", presence: "away" },
-  { name: "Sagar Poojary", time: "3:26 PM", prev: "perfect, atomic writes are exactly it", bg: "#4f8a7b", initials: "SP", presence: "avail", you: true },
-  { name: "Jenny Liu", time: "3:21 PM", prev: "brb gotta find my charger", bg: "#b07fb0", initials: "JL", presence: "avail" },
+  { name: "David", time: "3:35 PM", prev: "Ready for a quick catch-up?", bg: "#5b7fb0", initials: "D", presence: "busy", unread: true },
+  { name: "Manasa", time: "3:30 PM", prev: "Thanks for sharing!", bg: "#a3855d", initials: "M", presence: "away" },
+  { name: "Sagar", time: "3:26 PM", prev: "Sounds good, see you then.", bg: "#4f8a7b", initials: "S", presence: "avail", you: true },
+  { name: "Jenny", time: "3:21 PM", prev: "Have a great afternoon!", bg: "#b07fb0", initials: "J", presence: "avail" },
 ];
 
 export function ChatList() {

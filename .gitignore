@@ -1,5 +1,9 @@
 node_modules/
 dist/
+dist-demo/
+.release/
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # Local design-session scratch, captured UI screenshots, and OS cruft.

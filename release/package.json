@@ -1,0 +1,15 @@
+{
+  "name": "flashlearn",
+  "version": "0.1.0-next.0",
+  "description": "Source-attributed study cards for faster codebase onboarding.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "flashlearn": "dist/index.js" },
+  "files": ["dist", "client/dist", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.txt"],
+  "engines": { "node": ">=22.14.0" },
+  "repository": { "type": "git", "url": "git+https://github.com/flashlearn-ai/flashlearn.git" },
+  "homepage": "https://github.com/flashlearn-ai/flashlearn#readme",
+  "bugs": { "url": "https://github.com/flashlearn-ai/flashlearn/issues" },
+  "keywords": ["flashcards", "codebase", "onboarding", "spaced-repetition"],
+  "publishConfig": { "access": "public", "provenance": true, "registry": "https://registry.npmjs.org/" }
+}

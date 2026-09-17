@@ -6,15 +6,15 @@ import type { ReviewResult } from "./deck";
 /** What happened to a grade. `recorded: false` matters: the learning engine can
  *  reject a review, and a card that says "Scheduled" when nothing was stored
  *  tells the user their progress is being kept when it is not. */
-export type ReviewOutcome = { recorded: boolean; due: string | null };
+export type ReviewOutcome = { recorded: boolean; due: string | null; demo?: boolean };
 
 const TIMEOUT_MS = 10_000;
 
 /** Records the grade and reports the date the learning engine scheduled.
  *
- *  Attempted regardless of where the deck came from: the client does not know,
- *  and should not need to know, whether a server is behind it. */
+ *  Demo mode records only the in-memory session grade, without network or scheduling. */
 export async function submitReview(cardId: string, result: ReviewResult): Promise<ReviewOutcome> {
+  if (import.meta.env?.MODE === "demo") return { recorded: false, due: null, demo: true };
   try {
     const response = await fetch("/api/review", {
       method: "POST",

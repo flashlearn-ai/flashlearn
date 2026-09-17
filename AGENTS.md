@@ -161,13 +161,15 @@ Contract changes require coordinated review because all five workstreams may dep
 - Keep endpoint payloads aligned with `contracts/http.md`.
 - `src/` is the Node server. `client/` is the Teams-style browser client built with Vite and React; `npm run build --workspace @flashlearn/frontend` compiles the server, then builds the client into `client/dist`.
 - The server serves `client/dist` for every non-`/api` GET, falling back to the client shell so the browser owns routing. Unknown `/api/*` paths still return a JSON `404`.
-- `client/src/deckSource.ts` selects where cards come from via `VITE_DECK_SOURCE`: `fixture` (default), `api` for `GET /api/cards`, or any URL returning `Card[]`. It validates at the boundary and surfaces failures rather than silently substituting the fixture. `client/vite.config.ts` defaults the build to `api`, so the client `flashlearn start` serves reads the running project; `npm run demo --workspace @flashlearn/frontend` builds the fixture showcase via `--mode demo`. Do not move this into a `.env` file: `.gitignore` excludes `.env.*`, so the setting would not be committed and every other checkout would silently serve the fixture.
+- `client/src/deckSource.ts` selects where cards come from via `VITE_DECK_SOURCE` during development: `fixture`, `api` for `GET /api/cards`, or a URL returning `Card[]`. It validates at the boundary and surfaces failures rather than silently substituting the fixture. Official builds force the appropriate source through Vite's `define`; do not move this into ignored `.env` files.
 - `client/src/lib/review.ts` posts to `POST /api/review` and returns the `ReviewState` the learning engine computed. Due dates are rendered from that response; the client never computes an interval, because scheduling belongs to the learning package.
+- Release builds force the API source; demo builds force fixtures and write `client/dist-demo` separately from live `client/dist`. Demo ratings are session-only and must never contact `/api` or claim persisted schedules. Asset URLs must respect Vite's base for Pages subpaths.
 - `client/src/data.ts` holds the sample deck. `test/sample-deck.test.ts` asserts every card cites a file that exists and quotes it verbatim, because a deck that invents attribution discredits the product's central claim.
 - A session is capped at `SESSION_LIMIT` cards. Selected topics take turns filling it, so a topic with thousands of cards cannot crowd out a small one. A real repository produces far more cards than one sitting can review; keep the cap when changing session building.
 - Source excerpts exist only for the sample deck. A live `Card` carries `path` and `sha` but no snippet, and nothing in the contract reports mastery, so the client shows card counts and attribution rather than inventing either. Gaps of this kind are listed under "Known Gaps" in the root README; do not scaffold a stub for one, because a function that can only return nothing is dead code and fixes another package's interface before its owner has chosen it.
 - `npm run dev --workspace @flashlearn/frontend` serves the client on port 5173 and proxies `/api` to a `flashlearn start` server; override the target with `FLASHLEARN_API`.
-- `client/scripts/shot.mjs` captures UI states and needs Playwright, which is deliberately not a dependency: CI never runs it, and it added roughly 18 MB to every install. Install it when you want screenshots with `npm i -D playwright --workspace @flashlearn/frontend`.
+- `client/scripts/shot.mjs` captures optional UI screenshots; release browser checks use the Playwright development dependency.
+- `test:browser` now uses the frontend's Playwright development dependency to test built Pages artifacts; browser system dependencies are installed by CI.
 - The local page must work on desktop and mobile.
 - Frontend must not read JSON files or calculate review schedules directly.
 
@@ -212,6 +214,15 @@ Add or update tests for behavioral changes. Important integration invariants inc
 CLI integration tests use `packages/cli/test/fakes/harness.ts`, which provides in-memory repositories and recording dependencies. Keep package handshake assertions in `contracts.test.ts` and end-to-end orchestration assertions in `pipeline.test.ts`; assert calls and contract data rather than duplicating another package's algorithm.
 
 ## Documentation Maintenance
+
+### Public site and releases
+
+- `site/index.html` is the Pages hero. Preserve the three-stage narrative: source existing project knowledge; generate actionable contextual snippets; learn through regular gamified spaced repetition in daily workflows.
+- Keep current capabilities distinct from roadmap items. Wiki connectors and native Teams/GitHub/Slack delivery integrations must stay labeled planned until implemented and verified.
+- Update `site/docs/index.html`, `release/README.md`, and `docs/release-readiness.md` in the same change as CLI syntax, configuration, installation, endpoints, demo behavior, or supported sources change. Do not document unmerged CLI behavior as available.
+- `release/package.json` is the public version source. `site:build` stamps that version into site docs; the installed wrapper reads it for `--version`.
+- Verify `release:check`, `site:build`, and `site:test` for release-facing changes. Pages uploads only `.release/site`; npm publishes only the digest-checked `.release/flashlearn.tgz`.
+- Never build release demos from local `.flashlearn` data or configured external deck URLs. Preserve sample-source attribution checks and explicit demo labels.
 
 Treat this file as a living contract. Before completing any development task, compare the change against `AGENTS.md`, the root `README.md`, and the affected package README. Update documentation in the same change when any of these facts change:
 

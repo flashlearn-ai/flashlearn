@@ -1,0 +1,62 @@
+name: npm release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@11.12.1
+      - name: Check release tag and main ancestry
+        run: |
+          node -e "const p=require('./release/package.json');if(process.env.GITHUB_REF!=='refs/tags/v'+p.version)process.exit(1)"
+          git merge-base --is-ancestor HEAD origin/main
+      - run: npm ci
+      - run: npm run release:check
+      - name: Publish the tested tarball using npm OIDC
+        run: node scripts/publish-release.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-release
+          path: |
+            .release/flashlearn.tgz
+            .release/artifact.json
+  notes:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create matching GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then exit 0; fi
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release create "$RELEASE_TAG" --verify-tag --generate-notes --prerelease
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --generate-notes
+          fi

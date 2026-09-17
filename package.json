@@ -1,8 +1,11 @@
 {
   "name": "flashlearn",
   "private": true,
+  "license": "MIT",
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run build:packages && npm run build --workspace @flashlearn/cli",
     "build:packages": "npm run build --workspace @flashlearn/extraction && npm run build --workspace @flashlearn/frontend && npm run build --workspace @flashlearn/learning && npm run build --workspace @flashlearn/storage",
@@ -11,11 +14,19 @@
     "boundaries": "node scripts/check-boundaries.mjs",
     "prepare": "husky",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "node scripts/test-workspaces.mjs",
+    "release:build": "node scripts/build-release.mjs",
+    "release:pack": "node scripts/pack-release.mjs",
+    "release:test": "node scripts/test-release.mjs",
+    "release:check": "npm run check && npm run release:pack && npm run release:test",
+    "site:build": "node scripts/build-site.mjs",
+    "site:preview": "node scripts/preview-site.mjs",
+    "site:test": "npm run test:browser --workspace @flashlearn/frontend",
     "test:scripts": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",
+    "esbuild": "^0.25.12",
     "husky": "^9.1.7",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
