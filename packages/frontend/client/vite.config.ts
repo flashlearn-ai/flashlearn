@@ -10,7 +10,7 @@ const apiTarget = process.env.FLASHLEARN_API ?? "http://localhost:4173";
 
 // Run from the package root (`vite --config client/vite.config.ts`), so the browser
 // tree stays in `client/` beside the server in `src/` that serves its build.
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   /**
    * The build `flashlearn start` serves must read the running project, not the
    * bundled fixture. Set here rather than in `.env.production`, which
@@ -22,11 +22,15 @@ export default defineConfig(({ mode }) => {
    * fail on Windows. `deckSource` keeps its own `fixture` default, so the tests
    * and a bare `vite dev` are unaffected.
    */
-  process.env.VITE_DECK_SOURCE ??= mode === "demo" ? "fixture" : "api";
-
   return {
     root: "client",
     plugins: [react()],
+    base: mode === "demo" ? "./" : "/",
+    // Official artifacts must not inherit a local deck URL or fixture override.
+    define: command === "build" || mode === "demo" ? {
+      "import.meta.env.VITE_DECK_SOURCE": JSON.stringify(mode === "demo" ? "fixture" : "api"),
+    } : {},
+    build: { outDir: mode === "demo" ? "dist-demo" : "dist", emptyOutDir: true },
     server: {
       port: 5173,
       proxy: { "/api": { target: apiTarget, changeOrigin: true } },

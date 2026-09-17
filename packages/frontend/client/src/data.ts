@@ -1,6 +1,6 @@
 import type { Card } from "./lib/deck";
 
-/** Offline fallback for the showcase, used only when no server answers.
+/** Hand-authored public sample deck, selected explicitly by showcase mode.
  *
  *  Every question, answer, path and excerpt here is checked against the working
  *  tree by `test/sample-deck.test.ts`. A card that cites a file that does not

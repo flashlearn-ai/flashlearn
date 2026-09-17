@@ -162,7 +162,7 @@ export function FlashCard({ entry, index, total, current, onChoose, onGrade }: {
       ))}
       {grade && (
         <div className={`graded${outcome && !outcome.recorded ? " unrecorded" : ""}`}>
-          {outcome && !outcome.recorded
+          {outcome?.demo ? "Demo rating · session only" : outcome && !outcome.recorded
             ? "Not recorded — the server rejected this review."
             : due ? `Scheduled · comes back ${due}` : "Scheduled"}
         </div>

@@ -1,0 +1,43 @@
+name: Release artifacts
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  npm-artifact:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run release:pack
+      - run: npm run release:test
+  pages-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/test-build-modes.mjs
+      - run: npm run site:build
+        env:
+          VITE_DECK_SOURCE: https://invalid.example/must-not-be-used
+      - run: npm exec --workspace @flashlearn/frontend -- playwright install --with-deps chromium
+      - run: npm run site:test

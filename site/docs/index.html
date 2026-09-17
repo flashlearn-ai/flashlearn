@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FlashLearn documentation</title><link rel="icon" href="../icon.png"><link rel="stylesheet" href="../style.css"></head>
+<body><header><a class="brand" href="../"><img src="../icon.png" alt="" width="40" height="40">FlashLearn</a><nav aria-label="Main navigation"><a href="../">Home</a><a href="../demo/">Web demo</a><a href="https://github.com/flashlearn-ai/flashlearn">Source ↗</a></nav></header>
+<main class="docs"><p class="eyebrow">Tool documentation</p><h1>Get familiar with your next project.</h1><p>Source existing content, generate focused study cards, and build recall through small review sessions.</p>
+<nav class="docnav" aria-label="Documentation sections"><a href="#install">Install</a><a href="#quickstart">Quick start</a><a href="#commands">Commands</a><a href="#privacy">Privacy</a><a href="#demo">Demo</a><a href="#integrations">Integrations</a></nav>
+<section id="install"><h2>Installation</h2><p>Requires Node.js 22.14 or newer. Install Git for source commit attribution. The npm prerelease is version <strong>@@VERSION@@</strong>.</p><p class="callout">The publishing workflow is ready; these npm commands require the maintainer to publish the first prerelease. You can use a source checkout immediately.</p><pre><code>npm install --global flashlearn@next
+flashlearn --help
+flashlearn --version</code></pre><p>From a source checkout:</p><pre><code>npm ci
+npm run build
+npm run cli -- --help</code></pre></section>
+<section id="quickstart"><h2>Generate, then learn</h2><pre><code>flashlearn init /path/to/repo
+flashlearn generate /path/to/repo
+flashlearn start /path/to/repo</code></pre><p>Open <code>http://localhost:4173</code>. Generation creates missing storage automatically, so a separate <code>init</code> is optional. The install includes the browser UI; no build is required for npm users.</p><p>The current CLI saves the initialized project for later commands. To inspect another repository without changing your shell location:</p><pre><code>flashlearn project set /path/to/repo
+flashlearn project status -o json
+flashlearn question list -o yaml</code></pre></section>
+<section id="commands"><h2>Command reference</h2><ul>
+<li><code>init [directory]</code>: create missing local state and save the project selection.</li>
+<li><code>generate [directory]</code>: extract, validate, and persist cards.</li>
+<li><code>start [directory] --port 4173</code>: serve the local Teams-style review client and API.</li>
+<li><code>project set &lt;directory&gt;</code>: save the project directory.</li>
+<li><code>project show</code>: show the effective project.</li>
+<li><code>project status</code>: show card and review counts.</li>
+<li><code>question list</code> and <code>question get &lt;id&gt;</code>: inspect generated content.</li>
+</ul><p>Queries accept <code>-o text|json|yaml</code>. Use <code>project --help</code> or <code>question get --help</code> for contextual help. An explicit directory wins; otherwise <code>FLASHLEARN_PROJECT</code> overrides the saved user selection. Current defaults are localhost and port 4173.</p></section>
+<section id="privacy"><h2>Local-first data boundaries</h2><p>Cards, review metadata, and project settings are stored under <code>.flashlearn/</code> in the repository. Keep generated content out of Git. Saved project selection lives under <code>$XDG_CONFIG_HOME/flashlearn/config.json</code> or <code>~/.config/flashlearn/config.json</code>.</p><p>Offline extraction reads local Markdown and Go/JavaScript/TypeScript documentation. To enable AI generation, configure <code>FLASHLEARN_ENDPOINT_URL</code> and <code>FLASHLEARN_ENDPOINT_MODEL</code>. Optional authentication uses <code>FLASHLEARN_ENDPOINT_API_KEY</code>. Never put credential values into repository files.</p><p><strong>Configured endpoints receive code.</strong> Choose a trusted local or hosted endpoint and account for its permissions and retention. Local repository access controls do not automatically apply to that endpoint.</p></section>
+<section id="demo"><h2>Try the static demo</h2><p><a class="button" href="../demo/">Open the sample study session →</a></p><p>The Pages demo ships a curated, hand-authored deck about public FlashLearn source. It reads no local repository, makes no API requests, and resets ratings when reloaded. It does not save a learning-engine schedule.</p></section>
+<section id="integrations"><h2>Daily-workflow integrations</h2><p>Today you can review through a local Teams-style interface and use the CLI from repository workflows. Native Microsoft Teams, GitHub, and Slack delivery integrations are planned, not currently installed bots or apps. Repository ingestion is available today; wiki connectors are planned.</p></section>
+<section><h2>Help and updates</h2><p>Report problems in <a href="https://github.com/flashlearn-ai/flashlearn/issues">GitHub Issues</a> with CLI/Node versions and reproducible steps. Keep private code, decks, and credentials out of reports. See the <a href="https://github.com/flashlearn-ai/flashlearn/blob/main/docs/release-readiness.md">release runbook</a> for build and publishing instructions.</p></section>
+</main><footer><a href="../">FlashLearn</a><a href="https://github.com/flashlearn-ai/flashlearn/blob/main/LICENSE">MIT license</a></footer></body></html>

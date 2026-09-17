@@ -122,6 +122,7 @@ export default function App() {
         <Conversation>
           <div className="messages" ref={scroll}>
             <div className="divider"><span>Today</span></div>
+            {import.meta.env.MODE === "demo" && <p role="note">Public sample demo · ratings last for this session only and reset on reload. No project or API is accessed.</p>}
 
             {loadError !== null && (
               <BotMessage><span className="bubble">Could not load the deck: {loadError}</span></BotMessage>

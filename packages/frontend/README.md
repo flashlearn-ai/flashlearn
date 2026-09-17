@@ -6,6 +6,10 @@ Two halves in one package. `src/` is the Node server that answers the four locke
 
 `createFlashLearnServer(services)` is what the CLI composes; `FrontendServices` is an injected consumer port, not frontend-owned business logic. Do not access JSON storage or implement scheduling here. `MockFrontendServices` supplies empty API data for building against.
 
+The live build uses `client/dist`; `npm run demo --workspace @flashlearn/frontend` writes `client/dist-demo` and never overwrites the live build. Demo assets use relative paths and ratings are session-only, without API calls. Official builds override local `VITE_DECK_SOURCE` settings so release artifacts cannot accidentally load a private deck URL.
+
+Root `site:build` combines the demo with the landing page and tool docs from `site/`. Run `site:preview` for a subpath-aware preview and `site:test` for browser checks. See `docs/release-readiness.md` at the repo root for release and Pages setup.
+
 | Method | Behaviour |
 | --- | --- |
 | `createServer(services)` | Handle the four locked endpoints, then serve `client/dist` for any other GET, falling back to the client shell so the browser owns routing. |
@@ -26,8 +30,8 @@ npm run test --workspace @flashlearn/frontend
 
 The build reads the running project through `GET /api/cards`; `--mode demo` builds the bundled sample deck instead. See `AGENTS.md` for why that selection lives in `client/vite.config.ts` rather than a `.env` file.
 
-`client/scripts/shot.mjs` captures UI states and needs Playwright, which is deliberately not a dependency. Install it when you want screenshots:
+`client/scripts/shot.mjs` captures UI states. Browser checks use the Playwright development dependency. Install browser libraries when needed:
 
 ```bash
-npm i -D playwright --workspace @flashlearn/frontend
+npm exec --workspace @flashlearn/frontend -- playwright install --with-deps chromium
 ```
