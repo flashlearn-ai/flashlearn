@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { SESSION_LIMIT, dueLabel, type Choice, type ReviewResult, type Run, type SessionCard, type TopicGroup } from "../lib/deck";
+import type { TopicInsight } from "../lib/insights";
 import { EXCERPTS, TOPIC_META, type TopicIcon } from "../data";
 import { Arrow, Check, ChevronDown, Database, File, FileText, Repeat, Terminal, X } from "../icons";
 import { Mark } from "./Mark";
@@ -35,8 +36,9 @@ export function EmptyDeck() {
   );
 }
 
-export function TopicChooser({ groups, total, onStart }: { groups: TopicGroup[]; total: number; onStart: (ids: string[], labels: string) => void }) {
+export function TopicChooser({ groups, insights, total, onStart }: { groups: TopicGroup[]; insights: TopicInsight[]; total: number; onStart: (ids: string[], labels: string) => void }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const insightByTopic = new Map(insights.map((insight) => [insight.id, insight]));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allOn = sel.size === groups.length;
   const selectAll = () => setSel(allOn ? new Set() : new Set(groups.map((g) => g.id)));
@@ -56,13 +58,13 @@ export function TopicChooser({ groups, total, onStart }: { groups: TopicGroup[];
             const meta = TOPIC_META[g.id] ?? { accent: "#12965a", icon: "file" as TopicIcon };
             const Glyph = GLYPH[meta.icon];
             const on = sel.has(g.id);
+            const insight = insightByTopic.get(g.id);
             return (
               <button key={g.id} className={`topic${on ? " sel" : ""}`} style={{ "--a": meta.accent } as CSSProperties} onClick={() => toggle(g.id)}>
                 <span className="tglyph"><Glyph size={17} /></span>
                 <span className="tmain">
                   <span className="tlabel">{g.label}</span>
-                  {/* Card count only. No endpoint reports mastery, so none is claimed. */}
-                  <span className="tmastery"><em>{g.total.toLocaleString()} card{g.total === 1 ? "" : "s"}</em></span>
+                  <span className="tmastery"><em>{g.total.toLocaleString()} card{g.total === 1 ? "" : "s"}{insight ? ` · ${insight.successRate}% recalled` : ""}</em></span>
                 </span>
                 <span className="tcheck">{on && <Check size={14} />}</span>
               </button>

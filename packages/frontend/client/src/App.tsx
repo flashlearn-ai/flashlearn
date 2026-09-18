@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { deckSource } from "./deckSource";
 import { submitReview } from "./lib/review";
+import { buildTopicInsights, loadReviewEvents, recordReviewEvent } from "./lib/insights";
 import { SESSION_LIMIT, buildSet, classify, dealSession, groupByTopic, runsOf, scoreOf, type Card, type Choice, type ReviewResult, type SessionCard } from "./lib/deck";
 import { ChatList, Conversation, Rail } from "./components/Teams";
 import { DetailsPane, type Progress } from "./components/DetailsPane";
@@ -21,6 +22,8 @@ export default function App() {
   const studyDeck = useMemo(() => classify(deck), [deck]);
   const groups = useMemo(() => groupByTopic(studyDeck), [studyDeck]);
   const sources = useMemo(() => new Set(deck.map((c) => c.source.path)).size, [deck]);
+  const [reviewEvents, setReviewEvents] = useState(() => import.meta.env.MODE === "demo" ? [] : loadReviewEvents());
+  const insights = useMemo(() => buildTopicInsights(reviewEvents), [reviewEvents]);
   const [phase, setPhase] = useState<Phase>("welcome");
   const [cards, setCards] = useState<SessionCard[]>([]);
   const [step, setStep] = useState(0);
@@ -68,6 +71,9 @@ export default function App() {
       void submitReview(entry.card.id, g).then((outcome) => {
         if (startedIn !== liveSession.current) return;
         setCards((c) => c.map((item, i) => (i === at ? { ...item, outcome } : item)));
+        if (outcome.recorded) {
+          setReviewEvents(recordReviewEvent(entry.card.id, entry.card.topic, g));
+        }
       });
     }
     // A deck too small to offer a wrong choice shows the answer instead of asking,
@@ -139,7 +145,7 @@ export default function App() {
             {!loading && loadError === null && !empty && phase !== "welcome" && (
               <>
                 <BotMessage><span className="bubble">Welcome back, Sara. Pick the topics you want to study.</span></BotMessage>
-                {phase === "choosing" && <BotMessage><TopicChooser groups={groups} total={deck.length} onStart={start} /></BotMessage>}
+                {phase === "choosing" && <BotMessage><TopicChooser groups={groups} insights={insights} total={deck.length} onStart={start} /></BotMessage>}
                 {(phase === "running" || phase === "done") && (
                   <>
                     <UserMessage text={labels} />
@@ -166,7 +172,7 @@ export default function App() {
             )}
           </div>
         </Conversation>
-        <DetailsPane cards={deck.length} topics={groups.length} sources={sources} progress={progress} />
+        <DetailsPane cards={deck.length} topics={groups.length} sources={sources} progress={progress} insights={insights} />
       </div>
     </div>
   );
