@@ -14,7 +14,8 @@
     "test": "tsx --test test/**/*.test.ts",
     "demo": "tsc -p client/tsconfig.json --noEmit && vite build --config client/vite.config.ts --mode demo",
     "preview:demo": "vite preview --config client/vite.config.ts --mode demo",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:browser:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

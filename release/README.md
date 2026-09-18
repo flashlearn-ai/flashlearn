@@ -73,6 +73,24 @@ upserts without pruning existing cards outside the scan. Producing zero cards
 can succeed if a previous deck remains; no available study cards means exit 1.
 Exit codes are 0 for success, 1 for operation failure, and 2 for invalid arguments.
 
+## Live study
+
+The local UI uses `GET /api/cards/next` to select each due card on the server;
+`GET /api/cards` supplies deck counts. There is no live topic filter. Recall the
+answer, use **Reveal answer** (`GET /api/cards/:id`), then rate it incorrect,
+hard, correct, or easy. Sessions stop after 12 acknowledged reviews; incorrect
+cards may be due again immediately and repeats count toward the cap.
+
+Ratings are saved through `POST /api/review`. The UI shows **Saving review…**
+until confirmation, displays the server's due date, and waits for **Next due card**.
+Failed or malformed acknowledgements block advancement and new sessions and let
+you retry the same rating. A lost response may mean the save already succeeded;
+without an idempotency key, retrying can record the rating twice.
+
+Saved schedules survive reloads, while the session transcript resets. The server
+selects due cards again rather than replaying future cards. No cards due (a `404`
+from the next-card endpoint) is distinct from an empty project.
+
 ## Local data and endpoints
 
 Cards, review state, and settings are stored in the project's `.flashlearn/`.
@@ -86,8 +104,11 @@ enables a chat-completions endpoint. Code is sent to that configured endpoint;
 its access controls and retention policy are separate from local repository
 permissions. Keep endpoint credentials out of Git and public demo builds.
 
-The GitHub Pages showcase uses only public hand-authored samples. It does not read
-your project, contact an API, or persist ratings across reloads.
+The GitHub Pages showcase uses only public hand-authored samples in multiple-choice
+sessions of up to 12 cards. Selected topics share the slots, with the starting topic
+rotating when topics outnumber slots and each topic advancing by cards actually
+dealt. Ratings and topic/card cursors are session-only and reset on reload. It does
+not read your project, contact an API, or save a learning-engine schedule.
 
 ## Upgrade and support
 

@@ -12,6 +12,7 @@ npm ci
 npm run release:check
 npm run site:build
 npm exec --workspace @flashlearn/frontend -- playwright install --with-deps chromium
+npm run test:browser:live --workspace @flashlearn/frontend
 npm run site:test
 npm run site:preview
 ```
@@ -20,14 +21,18 @@ The preview is `http://127.0.0.1:4182/flashlearn/`. It deliberately includes the
 
 `release:check` runs workspace checks, builds the live UI/server, bundles the CLI, creates the tarball, installs it outside the monorepo, and verifies version/help, generation, queries, static assets, and persisted review state. It writes a SHA-256 receipt for the tested artifact. It never publishes.
 
+`test:browser:live` requires the live build produced above (or `npm run build --workspace @flashlearn/frontend`). It tests desktop/mobile live study against the real frontend server with package-local injected services: reveal, due selection, reloads, retries, pending saves, immediate incorrect-card repeats, future-card exclusion, and the 12-review cap. Disk persistence and the real learning algorithm remain integration-test responsibilities. `site:test` checks the separately built Pages/demo artifacts.
+
 ## Frontend outputs
 
 | Build | Output | Deck and reviews |
 | --- | --- | --- |
-| `npm run build --workspace @flashlearn/frontend` | `packages/frontend/client/dist/` | Live API-backed client |
-| `npm run demo --workspace @flashlearn/frontend` | `packages/frontend/client/dist-demo/` | Public sample deck, session-only reviews, no API calls |
+| `npm run build --workspace @flashlearn/frontend` | `packages/frontend/client/dist/` | Server-selected due cards, reveal-and-rate, persisted schedules, up to 12 acknowledged reviews |
+| `npm run demo --workspace @flashlearn/frontend` | `packages/frontend/client/dist-demo/` | Public sample multiple choice, topic-balanced sessions up to 12 cards, session-only reviews, no API calls |
 
 Official builds explicitly select their source even when `VITE_DECK_SOURCE` is set in the shell. Development source overrides remain available in ordinary Vite dev mode. Building one artifact never overwrites the other. `node scripts/test-build-modes.mjs` verifies both orders and hostile environment overrides.
+
+Live study uses `GET /api/cards` for counts, `GET /api/cards/next` for selection, and `GET /api/cards/:id` for answer reveal. There is no live topic filter. All four ratings post to `POST /api/review`; the UI waits for confirmation and an explicit **Next due card** click before advancing. Pending saves say **Saving review…**. Failed or malformed acknowledgements block advancement/new sessions and allow retry of the same rating; a lost response may follow a successful save, and retry can duplicate it because the contract has no idempotency key. Reload resets the transcript but uses persisted server schedules; future cards remain excluded, a next-card `404` means none are due, and immediately due incorrect-card repeats count toward the cap.
 
 ## Pages site
 
@@ -39,7 +44,7 @@ The hero emphasizes three stages:
 2. **Generate:** actionable, contextualized snippets that build project understanding and familiarity.
 3. **Learn:** regular, gamified spaced repetition integrated into daily work; the Teams-style UI works today, while native Teams, GitHub, and Slack delivery integrations are planned.
 
-Do not present roadmap connectors as installed integrations. The demo uses the existing hand-authored sample deck, whose citations are checked against public source. It never reads a local repository or contacts a model endpoint, and ratings reset on reload.
+Do not present roadmap connectors as installed integrations. The demo uses the existing hand-authored sample deck, whose citations are checked against public source. Multiple-choice sessions balance selected topics, rotate the starting topic when topics outnumber the 12 slots, and advance each topic by cards actually dealt. It never reads a local repository or makes API requests; ratings and topic/card cursors reset on reload, with no persisted schedule.
 
 ### Enable deployment
 

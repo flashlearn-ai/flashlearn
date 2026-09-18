@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./test/browser",
+  testIgnore: "live.spec.ts",
   timeout: 60000,
   workers: 1,
   use: { browserName: "chromium", headless: true },

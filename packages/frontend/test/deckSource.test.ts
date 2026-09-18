@@ -15,6 +15,16 @@ test("parseDeck accepts cards matching the locked contract", () => {
   assert.deepEqual(parseDeck([card]), [card]);
 });
 
+test("malformed tags and missing or non-string SHA never reach topic or attribution rendering", () => {
+  for (const tags of [null, "topic", [1], [null], {}]) {
+    assert.throws(() => parseDeck([{ ...card, tags }]), /no usable cards/);
+  }
+  for (const sha of [undefined, null, 123, "", "   "]) {
+    assert.throws(() => parseDeck([{ ...card, source: { ...card.source, sha } }]), /no usable cards/);
+  }
+  assert.equal(parseDeck([{ ...card, tags: ["", "cli"], source: { ...card.source, sha: "unknown" } }]).length, 1);
+});
+
 test("parseDeck rejects a payload that is not an array", () => {
   assert.throws(() => parseDeck({ error: "not found" }), /array of cards/);
 });

@@ -1,5 +1,6 @@
 import type { Card } from "./lib/deck";
 import { SAMPLE_DECK } from "./data";
+import type { CardPreview } from "../../../../contracts/index";
 
 /**
  * Where the app gets its cards. The bundled `SAMPLE_DECK` is a fixture so the UI runs
@@ -15,15 +16,27 @@ export type DeckSource = () => Promise<Card[]>;
 /** Endpoint serving the full deck, per contracts/http.md. */
 const API_DECK = "/api/cards";
 
-function isCard(value: unknown): value is Card {
+export function isPreview(value: unknown): value is CardPreview {
   if (typeof value !== "object" || value === null) return false;
-  const card = value as Partial<Card>;
+  const card = value as Partial<CardPreview>;
   return (
-    typeof card.id === "string" &&
-    typeof card.question === "string" &&
-    typeof card.answer === "string" &&
-    typeof card.source?.path === "string"
+    typeof card.id === "string" && card.id.trim().length > 0 &&
+    typeof card.question === "string" && card.question.trim().length > 0 &&
+    typeof card.source?.path === "string" && card.source.path.trim().length > 0 &&
+    typeof card.source?.sha === "string" && card.source.sha.trim().length > 0
   );
+}
+
+export function isCard(value: unknown): value is Card {
+  if (!isPreview(value)) return false;
+  const card = value as Partial<Card>;
+  return typeof card.answer === "string" && card.answer.trim().length > 0 &&
+    typeof card.createdAt === "string" && typeof card.updatedAt === "string" &&
+    (card.tags === undefined || (Array.isArray(card.tags) && card.tags.every((tag) => typeof tag === "string")));
+}
+
+export function isLiveSource(setting: string | undefined = import.meta.env?.VITE_DECK_SOURCE): boolean {
+  return setting?.trim() === "api";
 }
 
 /**
@@ -43,7 +56,7 @@ export function parseDeck(payload: unknown): Card[] {
 
 /** Fetches a deck from `url`, failing with a message the UI can display. */
 export async function fetchDeck(url: string): Promise<Card[]> {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Error(`${url} responded ${response.status}`);
   return parseDeck(await response.json());
 }

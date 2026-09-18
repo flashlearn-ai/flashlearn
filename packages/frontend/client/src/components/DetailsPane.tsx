@@ -52,14 +52,14 @@ function Session({ runs, cards, done }: Progress) {
 
       {done && (
         <>
-          <div className="dsec">
+          {due.length > 0 && <div className="dsec">
             <h4>Coming back</h4>
             <div className="dstats">
               <div className="dstat"><b>{due.filter((d) => d === "today").length}</b><span>Today</span></div>
               <div className="dstat"><b>{due.filter((d) => d === "tomorrow").length}</b><span>Tomorrow</span></div>
               <div className="dstat"><b>{due.filter((d) => d !== "today" && d !== "tomorrow").length}</b><span>Later</span></div>
             </div>
-          </div>
+          </div>}
           {missed.length > 0 && (
             <div className="dsec">
               <h4>Weakest</h4>
@@ -80,7 +80,7 @@ function Session({ runs, cards, done }: Progress) {
 }
 
 /** Teams-style right pane. Idle it introduces the app; mid-session it tracks the run. */
-export function DetailsPane({ cards, topics, sources, progress, insights }: { cards: number; topics: number; sources: number; progress: Progress | null; insights: TopicInsight[] }) {
+export function DetailsPane({ cards, topics, sources, progress, live, insights }: { cards: number; topics: number; sources: number; progress: Progress | null; live: boolean; insights: TopicInsight[] }) {
   return (
     <aside className="details">
       <div className="hero">
@@ -100,30 +100,14 @@ export function DetailsPane({ cards, topics, sources, progress, insights }: { ca
             <h4>How it works</h4>
             <div className="steps">
               <div className="step"><span className="n">1</span><span>Point it at a repository, a directory, or a set of docs — it extracts questions from the code and prose it finds.</span></div>
-              <div className="step"><span className="n">2</span><span>Pick topics and answer, one card at a time.</span></div>
-              <div className="step"><span className="n">3</span><span>It schedules reviews so the ones you miss come back.</span></div>
+              <div className="step"><span className="n">2</span><span>{live ? "Recall and reveal the next card due, chosen by the server." : "Pick topics and answer, one card at a time."}</span></div>
+              <div className="step"><span className="n">3</span><span>{live ? "Rate your recall. Confirmed reviews are saved and scheduled by the server." : "Practice ratings last for this session only."}</span></div>
             </div>
           </div>
         </>
       )}
 
-      <div className="dsec">
-        <h4>Insights · this device</h4>
-        {insights.length === 0 ? <p>No review history yet.</p> : (
-          <div className="insights">
-            {insights.map((insight) => (
-              <div className="insight" key={insight.id}>
-                <div className="insight-head">
-                  <span>{insight.label}</span>
-                  <b>{insight.successRate}%</b>
-                </div>
-                <span className="insight-track"><i style={{ width: `${insight.successRate}%` }} /></span>
-                <small>{insight.attempts} attempt{insight.attempts === 1 ? "" : "s"} · {insight.easy} easy · {insight.hard + insight.incorrect} difficult</small>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <TopicInsights insights={insights} />
 
       <div className="dsec">
         <h4>This deck</h4>
@@ -135,4 +119,25 @@ export function DetailsPane({ cards, topics, sources, progress, insights }: { ca
       </div>
     </aside>
   );
+}
+
+/** Shared by the desktop pane and the live mobile transcript. */
+export function TopicInsights({ insights }: { insights: TopicInsight[] }) {
+  return <div className="dsec">
+    <h4>Insights · this device</h4>
+    {insights.length === 0 ? <p>No review history yet.</p> : (
+      <div className="insights">
+        {insights.map((insight) => (
+          <div className="insight" key={insight.id}>
+            <div className="insight-head">
+              <span>{insight.label}</span>
+              <b>{insight.successRate}%</b>
+            </div>
+            <span className="insight-track"><i style={{ width: `${insight.successRate}%` }} /></span>
+            <small>{insight.attempts} attempt{insight.attempts === 1 ? "" : "s"} · {insight.easy} easy · {insight.hard + insight.incorrect} difficult</small>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>;
 }

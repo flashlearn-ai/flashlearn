@@ -202,6 +202,7 @@ img{ -webkit-user-drag:none; user-select:none }
 .g-easy:hover{border-color:var(--azure);background:#eef2fd;color:var(--azure-2)}
 .graded{margin-top:13px;font-size:12px;color:var(--muted)}
 .graded.unrecorded{color:var(--bad)}
+.qtext,.lone,.qsrc{overflow-wrap:anywhere}
 
 /* ---------------- results ---------------- */
 .results{position:relative;max-width:420px;border-radius:28px 8px 28px 8px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh-2);background:linear-gradient(180deg,#fff,#fbfdfb);padding:22px;text-align:left;animation:cardIn .5s var(--spring) both}
@@ -271,7 +272,12 @@ img{ -webkit-user-drag:none; user-select:none }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---------------- responsive ---------------- */
-@media(max-width:1120px){ .details{display:none} }
+.live-insights{display:none}
+@media(max-width:1120px){
+  .details{display:none}
+  .live-insights{display:block;background:var(--n-2);border:1px solid var(--sep);border-radius:8px;margin-bottom:16px}
+  .live-insights summary{cursor:pointer;padding:12px 20px;color:var(--forest)}
+}
 @media(max-width:840px){
   .rail{display:none} .list{width:86px}
   .list .name,.list .prev,.list-top h1,.search,.tabs,.chat .time{display:none}
