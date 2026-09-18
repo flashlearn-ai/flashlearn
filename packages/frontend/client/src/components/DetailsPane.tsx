@@ -1,4 +1,5 @@
 import { dueLabel, scoreOf, type Run, type SessionCard } from "../lib/deck";
+import type { TopicInsight } from "../lib/insights";
 import { Mark } from "./Mark";
 import { Ring } from "./Ring";
 import { X } from "../icons";
@@ -79,7 +80,7 @@ function Session({ runs, cards, done }: Progress) {
 }
 
 /** Teams-style right pane. Idle it introduces the app; mid-session it tracks the run. */
-export function DetailsPane({ cards, topics, sources, progress }: { cards: number; topics: number; sources: number; progress: Progress | null }) {
+export function DetailsPane({ cards, topics, sources, progress, insights }: { cards: number; topics: number; sources: number; progress: Progress | null; insights: TopicInsight[] }) {
   return (
     <aside className="details">
       <div className="hero">
@@ -105,6 +106,24 @@ export function DetailsPane({ cards, topics, sources, progress }: { cards: numbe
           </div>
         </>
       )}
+
+      <div className="dsec">
+        <h4>Insights · this device</h4>
+        {insights.length === 0 ? <p>No review history yet.</p> : (
+          <div className="insights">
+            {insights.map((insight) => (
+              <div className="insight" key={insight.id}>
+                <div className="insight-head">
+                  <span>{insight.label}</span>
+                  <b>{insight.successRate}%</b>
+                </div>
+                <span className="insight-track"><i style={{ width: `${insight.successRate}%` }} /></span>
+                <small>{insight.attempts} attempt{insight.attempts === 1 ? "" : "s"} · {insight.easy} easy · {insight.hard + insight.incorrect} difficult</small>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="dsec">
         <h4>This deck</h4>
