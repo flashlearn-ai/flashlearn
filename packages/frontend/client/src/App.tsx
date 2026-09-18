@@ -74,7 +74,6 @@ export default function App() {
         }
         if (startedIn !== liveSession.current) return;
         setCards((c) => c.map((item, i) => (i === at ? { ...item, outcome } : item)));
-        }
       });
     }
     // A deck too small to offer a wrong choice shows the answer instead of asking,
