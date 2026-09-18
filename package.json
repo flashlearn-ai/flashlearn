@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build:packages && npm run build --workspace @flashlearn/cli",
     "build:packages": "npm run build --workspace @flashlearn/extraction && npm run build --workspace @flashlearn/frontend && npm run build --workspace @flashlearn/learning && npm run build --workspace @flashlearn/storage",
-    "check": "npm run boundaries && npm run typecheck && npm run test:scripts && npm test",
+    "check": "npm run boundaries && npm run lockfile && npm run typecheck && npm run test:scripts && npm test",
     "cli": "node scripts/ensure-cli-builds.mjs && tsx packages/cli/src/index.ts",
     "boundaries": "node scripts/check-boundaries.mjs",
     "prepare": "husky",
@@ -22,7 +22,8 @@
     "site:build": "node scripts/build-site.mjs",
     "site:preview": "node scripts/preview-site.mjs",
     "site:test": "npm run test:browser --workspace @flashlearn/frontend",
-    "test:scripts": "node --test test/*.test.mjs"
+    "test:scripts": "node --test test/*.test.mjs",
+    "lockfile": "node scripts/check-lockfile-registry.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",
