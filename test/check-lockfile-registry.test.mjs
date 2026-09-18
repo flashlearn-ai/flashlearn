@@ -14,7 +14,7 @@ const script = fileURLToPath(new URL("../scripts/check-lockfile-registry.mjs", i
 async function check(lockfile) {
   const cwd = await mkdtemp(join(tmpdir(), "flashlearn-lockfile-"));
   try {
-    await writeFile(join(cwd, "package-lock.json"), JSON.stringify(lockfile, null, 2));
+    await writeFile(join(cwd, "package-lock.json"), JSON.stringify({ lockfileVersion: 3, ...lockfile }, null, 2));
     await exec(process.execPath, [script], { cwd });
     return { ok: true, output: "" };
   } catch (error) {
@@ -51,4 +51,58 @@ test("a mirror's weaker sha1 integrity is rejected", async () => {
 test("a workspace link is not mistaken for a registry URL", async () => {
   const result = await check({ packages: { "": {}, "packages/frontend": { link: true, resolved: "packages/frontend" } } });
   assert.ok(result.ok, result.output);
+});
+
+/** A guard that reports success for a file it could not read is worse than no
+ *  guard: the next person trusts a green check that inspected nothing. */
+test("a lockfile shape this cannot read is refused, not passed", async () => {
+  for (const lockfile of [
+    { lockfileVersion: 1, dependencies: { react: { resolved: "https://ms-feed-25.pkgs.visualstudio.com/x.tgz", integrity: "sha1-abc=" } } },
+    { lockfileVersion: 3 },
+  ]) {
+    const cwd = await mkdtemp(join(tmpdir(), "flashlearn-lockfile-"));
+    try {
+      await writeFile(join(cwd, "package-lock.json"), JSON.stringify(lockfile, null, 2));
+      await exec(process.execPath, [script], { cwd });
+      assert.fail(`a version ${lockfile.lockfileVersion} lockfile should be refused`);
+    } catch (error) {
+      assert.match(`${error.stdout ?? ""}${error.stderr ?? ""}`, /cannot read|npm 7 or newer/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  }
+});
+
+test("a registry entry with integrity stripped is rejected, not just a weak one", async () => {
+  const stripped = { resolved: good.resolved };
+  const result = await check({ packages: { "": {}, "node_modules/react": stripped } });
+  assert.equal(result.ok, false, "a missing integrity is worse than a weak one");
+  assert.match(result.output, /absent/);
+});
+
+test("a non-sha512 algorithm is rejected", async () => {
+  const sha256 = { ...good, integrity: "sha256-abc=" };
+  const result = await check({ packages: { "": {}, "node_modules/react": sha256 } });
+  assert.equal(result.ok, false);
+});
+
+test("a git spec on a mirror host is caught", async () => {
+  const git = { resolved: "git+ssh://git@ms-feed-25.pkgs.visualstudio.com/thing.git#abc", integrity: undefined };
+  const result = await check({ packages: { "": {}, "node_modules/thing": git } });
+  assert.equal(result.ok, false, "a git spec can name a mirror too");
+  assert.match(result.output, /ms-feed-25/);
+});
+
+test("a malformed URL is reported, not thrown as a stack trace", async () => {
+  const broken = { ...good, resolved: "https://" };
+  const result = await check({ packages: { "": {}, "node_modules/react": broken } });
+  assert.equal(result.ok, false);
+  assert.doesNotMatch(result.output, /node:internal/, "the operator should see the fix, not a Node trace");
+  assert.match(result.output, /registry\.npmjs\.org/);
+});
+
+test("a lookalike host is not accepted", async () => {
+  const evil = { ...good, resolved: "https://registry.npmjs.org.evil.example/react/-/react-18.3.1.tgz" };
+  const result = await check({ packages: { "": {}, "node_modules/react": evil } });
+  assert.equal(result.ok, false);
 });
