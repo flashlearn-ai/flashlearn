@@ -164,9 +164,10 @@ export function FlashCard({ entry, index, total, current, onChoose, onGrade }: {
       ))}
       {grade && (
         <div className={`graded${outcome && !outcome.recorded ? " unrecorded" : ""}`}>
-          {outcome?.demo ? "Demo rating · session only" : outcome && !outcome.recorded
-            ? "Not recorded — the server rejected this review."
-            : due ? `Scheduled · comes back ${due}` : "Scheduled"}
+          {!outcome ? "Saving review…" : outcome.demo ? "Demo rating · session only" : !outcome.recorded
+            ? "Save not confirmed — retry this rating."
+            : due ? `Scheduled · comes back ${due}` : "Review saved · no due date returned"}
+          {outcome && !outcome.recorded && !outcome.demo && current && <button className="start" onClick={() => onGrade(grade)}>Retry save</button>}
         </div>
       )}
 

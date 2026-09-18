@@ -4,6 +4,8 @@
 
 <h1 align="center">FlashLearn</h1>
 
+<p align="center"><a href="https://flashlearn-ai.github.io/flashlearn/">Visit the FlashLearn website</a></p>
+
 <p align="center"><strong>Agentic AI for compounding learning velocity.</strong></p>
 
 <p align="center">Onboard effectively to unfamiliar code repositories by turning their source into attributed study cards and a local spaced-repetition experience.</p>
@@ -51,7 +53,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Owner:** Sara
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
-   - **Current:** Merged in PR #36: the Node server serves the locked endpoints and the built Teams client, with capped topic-ordered sessions, answer reveal, persisted review actions, source attribution, and loading/empty/error states. Source excerpts are available in the sample deck only
+   - **Current:** The Node server serves the locked endpoints and built Teams client. Live study reveals and rates server-selected due cards, capped at 12 acknowledged reviews with persisted schedules; the sample demo uses topic-balanced, session-only multiple choice. Source excerpts are available in the sample deck only
    - **Next:** Coordinate gaps 1 to 4 with their owners
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
@@ -61,9 +63,9 @@ Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ow
 Found by running FlashLearn against real repositories and against plain, non-Git folders. Each needs a decision from an owner other than the frontend, so each is recorded here rather than scaffolded in code: a stub that can only return nothing is dead weight, and pre-deciding another package's interface is not the frontend's call. Where data is missing the client shows nothing; it never guesses.
 
 1. **A deck has no identity.** Topic labels such as `Metrics` or `Framework` are generic, and `GET /api/cards` carries only repository-relative paths, so the client cannot say which project it is reviewing. The CLI owns the project root and is the only part that knows. Note that input may be a plain folder, so this cannot rely on a Git remote.
-2. **A live card carries no excerpt.** An incorrect answer opens the source panel, because the code is the explanation, but `Card.source` holds only `path` and `sha`. Only the sample deck ships excerpts; a live card shows attribution without a snippet. Carrying them would change `GeneratedCard`.
+2. **A live card carries no excerpt.** Live study reveals the answer and shows source attribution, but `Card.source` holds only `path` and `sha`. Only the sample multiple-choice demo ships excerpts and opens the source panel after an incorrect choice. Carrying excerpts in generated cards would change `GeneratedCard`.
 3. **Card-quality feedback has nowhere to go.** Marking a generated card wrong is the signal needed to tune extraction at scale. There is no endpoint and no store for it, so the control is not built: a button that discards its input while thanking the user is worse than its absence.
-4. **Mastery is not reported.** The topic chooser shows card counts because nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
+4. **Mastery is not reported.** The client shows deck counts, not mastery; live study has no topic chooser. Nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
 5. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
 
 David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
@@ -189,6 +191,7 @@ For packaging, publishing, and website deployment, see the [npm and GitHub Pages
 npm install
 npm run check
 npm run build
+npm run test:browser:live --workspace @flashlearn/frontend
 npm run test --workspace @flashlearn/learning
 ```
 
@@ -214,6 +217,12 @@ Scope extraction with `flashlearn generate --project /path/to/repo --subpath src
 `project show/status` and `question list/get` accept `-o, --output text|json|yaml` (default text). See the [CLI README](packages/cli/README.md) for complete syntax.
 
 `flashlearn start` serves the browser client that `packages/frontend` builds into `client/dist`. The development runner ensures that build is ready; the npm release includes it. To work on the client with hot reload instead, run `npm run dev --workspace @flashlearn/frontend` on port 5173; it proxies `/api` to a `flashlearn start` server on port 4173, overridable with `FLASHLEARN_API`.
+
+Live study uses `GET /api/cards` for counts and `GET /api/cards/next` for server-selected due cards, with no topic filter. **Reveal answer** fetches `GET /api/cards/:id`; rate recall as incorrect, hard, correct, or easy. Each session allows up to 12 acknowledged reviews, including immediately due incorrect-card repeats. Saved schedules survive reloads; the transcript resets and future cards stay out of the due queue. A next-card `404` means no cards are due.
+
+The client shows **Saving review…** until `POST /api/review` is confirmed, then displays the server's due date and offers **Next due card**. Failed or malformed acknowledgements block advancement and new sessions while allowing retry of the same rating. A lost response may mean the save succeeded; the contract has no idempotency key, so retrying may record the rating twice.
+
+The sample demo uses multiple choice with session-only ratings and no API calls. Sessions balance selected topics across at most 12 cards, rotate the starting topic when topics outnumber slots, and advance each topic by cards actually dealt. Ratings and cursors reset on reload. The live browser suite above requires a live build and Playwright Chromium (installation instructions are in the release runbook); it uses package-local injected services on desktop/mobile. `npm run site:test` checks the separately built Pages demo.
 
 The CLI returns exit code `0` for success, `1` for execution failures, and `2` for invalid commands or arguments. See `packages/cli/README.md` for its dependency-injection and integration-test structure.
 

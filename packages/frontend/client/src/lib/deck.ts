@@ -115,33 +115,36 @@ export const SESSION_LIMIT = 12;
 
 /** Cards for the chosen topics, ordered so each topic is one contiguous run.
  *  The run is what the bot announces between topics, and what the pane charts.
- *  Topics take turns filling the session, so every chosen topic is represented
- *  even when one of them dwarfs the rest. */
-export function buildSet(cards: StudyCard[], selected: string[], limit = SESSION_LIMIT, rotation = 0): StudyCard[] {
+ *  Topics take turns filling the session. When there are more topics than slots,
+ *  the starting topic rotates too. Cursors count cards actually dealt per topic. */
+export function buildSet(cards: StudyCard[], selected: string[], limit = SESSION_LIMIT, rotation = 0, cursors?: ReadonlyMap<string, number>): StudyCard[] {
   // Deduplicated: a repeated id would otherwise take a turn twice per round and
   // emit its cards twice, producing duplicate React keys in the session.
-  const topicIds = [...new Set(selected)];
+  const selectedIds = [...new Set(selected)];
+  const start = selectedIds.length ? (rotation * Math.min(limit, selectedIds.length)) % selectedIds.length : 0;
+  const topicIds = [...selectedIds.slice(start), ...selectedIds.slice(0, start)];
   const byTopic = new Map(topicIds.map((id) => [id, [] as StudyCard[]]));
   for (const card of cards) byTopic.get(card.topic.id)?.push(card);
 
-  const taken = new Map(topicIds.map((id) => [id, [] as StudyCard[]]));
+  const quotas = new Map(topicIds.map((id) => [id, 0]));
   let total = 0;
   for (let round = 0; total < limit; round += 1) {
     let placed = false;
     for (const id of topicIds) {
       const list = byTopic.get(id);
-      // Rotated by session so the whole topic is reachable. Taking `[round]`
-      // every time meant a topic of 1400 cards only ever showed its first 12,
-      // and repeating a session re-graded the same cards indefinitely.
-      const card = list && round < list.length ? list[(rotation + round) % list.length] : undefined;
-      if (!card || total >= limit) continue;
-      taken.get(id)!.push(card);
+      if (!list || round >= list.length || total >= limit) continue;
+      quotas.set(id, quotas.get(id)! + 1);
       total += 1;
       placed = true;
     }
     if (!placed) break;
   }
-  return topicIds.flatMap((id) => taken.get(id) ?? []);
+  return topicIds.flatMap((id) => {
+    const list = byTopic.get(id)!;
+    const quota = quotas.get(id)!;
+    const offset = cursors ? cursors.get(id) ?? 0 : rotation * quota;
+    return Array.from({ length: quota }, (_, i) => list[(offset + i) % list.length]!);
+  });
 }
 
 export type Run = Topic & { start: number; cards: StudyCard[] };

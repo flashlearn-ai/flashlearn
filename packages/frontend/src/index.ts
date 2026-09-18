@@ -48,7 +48,7 @@ export function renderPage(): string {
 }
 
 function json(response: import("node:http").ServerResponse, status: number, value: unknown, body = true): void {
-  response.writeHead(status, { "content-type": "application/json" });
+  response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
   response.end(body ? JSON.stringify(value) : undefined);
 }
 

@@ -191,7 +191,31 @@ test("successive sessions reach further into a topic than the first", () => {
 
   assert.equal(first.length, SESSION_LIMIT);
   assert.notDeepEqual(first, second, "a second session repeated the first");
+  assert.equal(first.filter((id) => second.includes(id)).length, 0, "sessions should advance by cards dealt, not one card");
   assert.equal(new Set(second).size, second.length, "a session repeated a card within itself");
+});
+
+test("more selected topics than slots do not starve later topics", () => {
+  const deck = classify(Array.from({ length: 29 }, (_, i) => card(`c${i}`, `topic-${i}`, `answer ${i}`)));
+  const topics = deck.map((c) => c.topic.id);
+  const reached = new Set<string>();
+  for (let session = 0; session < 3; session += 1) {
+    const set = buildSet(deck, topics, SESSION_LIMIT, session);
+    assert.equal(set.length, SESSION_LIMIT);
+    for (const entry of set) reached.add(entry.topic.id);
+  }
+  assert.equal(reached.size, topics.length);
+});
+
+test("per-topic cursors avoid overlap even when selected topics change", () => {
+  const deck = classify(Array.from({ length: 60 }, (_, i) => card(`c${i}`, i < 30 ? "a" : "b", `answer ${i}`)));
+  const cursors = new Map<string, number>();
+  const first = buildSet(deck, ["a", "b"], SESSION_LIMIT, 0, cursors);
+  for (const entry of first) cursors.set(entry.topic.id, (cursors.get(entry.topic.id) ?? 0) + 1);
+  const second = buildSet(deck, ["a"], SESSION_LIMIT, 1, cursors);
+  assert.equal(second.filter((entry) => first.some((previous) => previous.id === entry.id)).length, 0);
+  const newSelection = buildSet(deck, ["b"], SESSION_LIMIT, 5, new Map([["a", 12]]));
+  assert.equal(newSelection[0]?.id, "c30", "a newly selected topic starts at its first unseen card");
 });
 
 test("rotation past the end of a topic wraps without repeating within a session", () => {
