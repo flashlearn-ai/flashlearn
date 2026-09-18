@@ -80,7 +80,7 @@ function Session({ runs, cards, done }: Progress) {
 }
 
 /** Teams-style right pane. Idle it introduces the app; mid-session it tracks the run. */
-export function DetailsPane({ cards, topics, sources, progress, live, insights }: { cards: number; topics: number; sources: number; progress: Progress | null; live: boolean; insights: TopicInsight[] }) {
+export function DetailsPane({ projectName, cards, topics, sources, progress, live, insights }: { projectName: string | null; cards: number; topics: number; sources: number; progress: Progress | null; live: boolean; insights: TopicInsight[] }) {
   return (
     <aside className="details">
       <div className="hero">
@@ -111,6 +111,7 @@ export function DetailsPane({ cards, topics, sources, progress, live, insights }
 
       <div className="dsec">
         <h4>This deck</h4>
+        {projectName && <p className="deck-title">{projectName}</p>}
         <div className="dstats">
           <div className="dstat"><b>{cards}</b><span>Cards</span></div>
           <div className="dstat"><b>{topics}</b><span>Topics</span></div>

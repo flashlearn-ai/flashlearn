@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { deckSource, isLiveSource } from "./deckSource";
 import { LiveSession } from "./components/LiveSession";
+import { loadProjectName } from "./lib/project";
 import { submitReview } from "./lib/review";
 import { buildTopicInsights, loadReviewEvents, recordReviewEvent } from "./lib/insights";
 import { SESSION_LIMIT, buildSet, classify, dealSession, groupByTopic, runsOf, scoreOf, type Card, type Choice, type ReviewResult, type SessionCard } from "./lib/deck";
@@ -18,6 +19,9 @@ export default function App() {
   // API is obvious instead of looking like the sample deck was intended.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Null until the server answers, and null forever for a project that declares
+  // no name. The pane shows no title rather than inventing one.
+  const [projectName, setProjectName] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   // Computed from the whole deck, never from a session subset: a subset shares a
   // deeper path prefix, which would group its cards differently to the chooser.
@@ -52,6 +56,8 @@ export default function App() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [loadAttempt]);
+
+  useEffect(() => { let cancelled = false; void loadProjectName().then((name) => { if (!cancelled) setProjectName(name); }); return () => { cancelled = true; }; }, []);
 
   useEffect(() => { scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: "smooth" }); }, [step, phase, typing, cards]);
 
@@ -195,7 +201,7 @@ export default function App() {
             )}
           </div>
         </Conversation>
-        <DetailsPane cards={deck.length} topics={groups.length} sources={sources} progress={progress} live={live} insights={insights} />
+        <DetailsPane projectName={projectName} cards={deck.length} topics={groups.length} sources={sources} progress={progress} live={live} insights={insights} />
       </div>
     </div>
   );
