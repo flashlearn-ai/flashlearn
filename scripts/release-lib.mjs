@@ -20,7 +20,7 @@ export function run(command, args, options = {}) {
 
 export function validateManifest(manifest) {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/.test(manifest.version)) throw new Error("Invalid release version");
-  if (manifest.name !== "flashlearn" || manifest.private || manifest.dependencies || manifest.devDependencies || manifest.scripts) throw new Error("Release must be a standalone CLI-only manifest");
+  if (manifest.name !== "@flashlearnai/cli" || manifest.private || manifest.dependencies || manifest.devDependencies || manifest.scripts) throw new Error("Release must be a standalone CLI-only manifest");
   if (manifest.bin?.flashlearn !== "dist/index.js" || manifest.license !== "MIT") throw new Error("Invalid release bin or license");
   return manifest;
 }
