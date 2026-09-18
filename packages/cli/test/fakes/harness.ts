@@ -6,7 +6,7 @@ import type {
   ReviewResult,
   ReviewState,
 } from "../../../../contracts/index.js";
-import type { CliDependencies, FrontendServices, ServerHandle } from "../../src/dependencies.js";
+import type { CliDependencies, FrontendServices, GenerateOptions, ServerHandle } from "../../src/dependencies.js";
 
 export class MemoryCardRepository implements CardRepository {
   readonly cards = new Map<string, Card>();
@@ -58,6 +58,7 @@ export class RecordingDependencies implements CliDependencies {
   generatedCards: GeneratedCard[] = [];
   initializedRoots: string[] = [];
   generatedRoots: string[] = [];
+  generationOptions: Array<GenerateOptions | undefined> = [];
   cardRepositories = new Map<string, MemoryCardRepository>();
   reviewRepositories = new Map<string, MemoryReviewRepository>();
   frontendServices?: FrontendServices;
@@ -67,15 +68,14 @@ export class RecordingDependencies implements CliDependencies {
   currentTime = new Date("2026-01-02T03:04:05.000Z");
   server = { kind: "fake-server" };
   directories = new Set<string>();
-  savedProject: string | null = null;
-  environmentProjectPath?: string;
 
   async initializeStore(root: string): Promise<void> {
     this.initializedRoots.push(root);
   }
 
-  async generateCards(root: string): Promise<GeneratedCard[]> {
+  async generateCards(root: string, options?: GenerateOptions): Promise<GeneratedCard[]> {
     this.generatedRoots.push(root);
+    this.generationOptions.push(options);
     return this.generatedCards;
   }
 
@@ -123,22 +123,6 @@ export class RecordingDependencies implements CliDependencies {
 
   async isDirectory(path: string): Promise<boolean> {
     return this.directories.has(path);
-  }
-
-  async loadSavedProject(): Promise<string | null> {
-    return this.savedProject;
-  }
-
-  async saveProject(path: string): Promise<void> {
-    this.savedProject = path;
-  }
-
-  environmentProject(): string | undefined {
-    return this.environmentProjectPath;
-  }
-
-  setEnvironmentProject(path: string): void {
-    this.environmentProjectPath = path;
   }
 
   now(): Date {

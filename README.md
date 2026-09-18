@@ -8,7 +8,7 @@
 
 <p align="center">Onboard effectively to unfamiliar code repositories by turning their source into attributed study cards and a local spaced-repetition experience.</p>
 
-<p align="center"><strong>Local-first and secure by design:</strong> questions and generated learning content stay within your existing repository access controls.</p>
+<p align="center"><strong>Local-first:</strong> cards and review state are stored in your project's <code>.flashlearn/</code> directory. Offline extraction stays local; configured AI endpoints receive source code and have their own access controls and retention policies.</p>
 
 ## Feature Map
 
@@ -17,18 +17,18 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
 1. 🔵 **CLI / orchestration** (`packages/cli`)
    - **Status:** ✅ Done
    - **Owner:** David
-   - **Features:** `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, `project set/show/status`, `question list/get`, structured output, configuration, local server startup, orchestration, dependency injection, integration fakes, and pipeline tests
+   - **Features:** `init`, `generate`, `start`, `project show/status`, `question list/get`, per-invocation `--project`, structured output, scoped extraction, local server startup, orchestration, and integration tests
    - **Dependencies:** May depend on all packages
-   - **Current:** Commands, saved `FLASHLEARN_PROJECT` configuration, text/JSON/YAML queries, package wiring, and integration tests are implemented
-   - **Next:** Expose extraction's `GenerateOptions` (`subpath`, `maxFiles`) through `flashlearn generate`, which cannot currently scope a run (gap 5)
+   - **Current:** Cwd-based project selection, text/JSON/YAML queries, auto-initializing generation, empty-deck startup confirmation, and `--subpath`/`--max-files` extraction scope
+   - **Next:** Coordinate project identity for the browser client (gap 1)
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
    - **Status:** ✅ Done
    - **Owner:** Manasa
    - **Features:** Repository scanning, Markdown headings, JSDoc, Go doc comments, undocumented export signatures, answer cleanup, and source attribution (`path`, `sha`)
    - **Dependencies:** Shared contracts only
-   - **Current:** The deterministic extraction pipeline is implemented and tested across Go, JavaScript, JSX, Markdown, TypeScript, and TSX sources, skips machine-generated sources, and scopes a run to a subpath
-   - **Next:** Add agentic AI generation as a separate capability when its local-first model and provider contract are defined; decide what `sha` should hold when the input is not a Git repository (gap 6)
+   - **Current:** Deterministic extraction and optional endpoint-backed generation support Go, JavaScript, JSX, Markdown, TypeScript, and TSX, with generated-source skipping, scoped scans, and card-quality filtering
+   - **Next:** Decide what `sha` should hold when the input is not a Git repository (gap 5)
 
 3. 🟠 **Storage / repositories** (`packages/storage`)
    - **Status:** ✅ Done
@@ -47,12 +47,12 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Next:** Decide what "mastered" means before any surface reports it (gap 4). The review controls are connected: the client submits grades and renders the `nextReview` this package returns, rather than computing an interval of its own
 
 5. 🔴 **Frontend / fake Teams** (`packages/frontend`)
-   - **Status:** 🚧 In Progress
+   - **Status:** ✅ Done
    - **Owner:** Sara
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
-   - **Current:** Implemented but **not merged**, so this stays in progress under the rule below. On a branch: the Node server serves the locked endpoints and the built Teams client in `client/`, which runs a topic-ordered review session against `GET /api/cards` and `POST /api/review`, caps a session at `SESSION_LIMIT`, explains a miss from the source it cites, and distinguishes loading, empty and failed decks
-   - **Next:** Merge, then revisit gaps 1 to 4, none of which the frontend can close alone
+   - **Current:** Merged in PR #36: the Node server serves the locked endpoints and the built Teams client, with capped topic-ordered sessions, answer reveal, persisted review actions, source attribution, and loading/empty/error states. Source excerpts are available in the sample deck only
+   - **Next:** Coordinate gaps 1 to 4 with their owners
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
 
@@ -64,8 +64,7 @@ Found by running FlashLearn against real repositories and against plain, non-Git
 2. **A live card carries no excerpt.** An incorrect answer opens the source panel, because the code is the explanation, but `Card.source` holds only `path` and `sha`. Only the sample deck ships excerpts; a live card shows attribution without a snippet. Carrying them would change `GeneratedCard`.
 3. **Card-quality feedback has nowhere to go.** Marking a generated card wrong is the signal needed to tune extraction at scale. There is no endpoint and no store for it, so the control is not built: a button that discards its input while thanking the user is worse than its absence.
 4. **Mastery is not reported.** The topic chooser shows card counts because nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
-5. **`flashlearn generate` cannot scope a run.** Extraction supports `GenerateOptions` (`subpath`, `maxFiles`), but the CLI's `generateCards(root)` takes no options, so a whole-repository run is the only thing reachable from the command line. The capability exists and is unreachable; this needs CLI wiring only.
-6. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
+5. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
 
 David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
 
@@ -90,7 +89,7 @@ David is responsible for defining and coordinating agreement on these contracts 
 1. `Card` and `GeneratedCard`
 2. `ReviewState` and review result values
 3. `CardRepository` and `ReviewRepository`
-4. CLI commands: `flashlearn init [directory]`, `flashlearn generate [directory]`, and `flashlearn start [directory] [--host <host>] [--port <port>]`
+4. CLI commands and per-invocation project selection (see the [CLI README](packages/cli/README.md))
 5. API endpoint names and HTTP payloads
 
 The locked HTTP endpoints are:
@@ -108,12 +107,12 @@ Once the team agrees on these contracts, contributors should build against packa
 
 Types are physically declared in `contracts/index.d.ts` when they cross package boundaries, but every type has one owning workstream. Its package area below owns the type's meaning and evolution; consumers use the shared declaration without taking ownership. Only the CLI connects concrete package implementations.
 
-Map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint.
+Map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint, 📁 local storage.
 
 ```mermaid
 flowchart TD
   subgraph CLIRegion["🔵 CLI / orchestration · David · packages/cli"]
-    CLI["<b>⚙️ Methods:</b><br/>projectRoot(input)<br/>flashlearnRoot(input)<br/>project set · show · status<br/>question get · list<br/>initialize(root)<br/>generate(directory)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> ProjectStatus<br/>project · cards · reviewed<br/>unreviewed · due<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
+    CLI["<b>⚙️ Methods:</b><br/>projectRoot(input)<br/>flashlearnRoot(input)<br/>project show · status<br/>question get · list<br/>initialize(root)<br/>generate(root, options?)<br/>start(root, options?)<br/><br/><b>🧩 Type:</b> ProjectStatus<br/>project · cards · reviewed<br/>unreviewed · due<br/><br/><b>🧩 Type:</b> StartOptions<br/>host? · port?<br/><br/><b>🧩 Type:</b> Card<br/>id · question · answer<br/>source.path · source.sha · tags?<br/>createdAt · updatedAt"]
   end
 
   subgraph PackagePipeline["Contract handoffs"]
@@ -197,14 +196,24 @@ Run the development CLI from the repository root:
 
 ```bash
 npm run cli -- --help
-npm run cli -- init .
-npm run cli -- generate .
-npm run cli -- start . --host localhost --port 4173
+npm run cli -- generate --project /path/to/repo
+npm run cli -- start --project /path/to/repo --host localhost --port 4173
+npm --silent run cli -- project status --project /path/to/repo -o json
 ```
 
-The root `cli` script runs with the repository as its working directory and builds the package dependencies first. Arguments after `--` are passed to FlashLearn.
+The root `cli` runner uses the repository root as its working directory. Input/output fingerprints let it reuse valid sibling builds and rebuild changed or missing outputs, including the live frontend bundle. Arguments after `--` are passed to FlashLearn. Use `npm --silent run cli` when consuming JSON/YAML stdout; build logs, project diagnostics, and generation progress go to stderr.
 
-`flashlearn start` serves the browser client that `packages/frontend` builds into `client/dist`, so run a build before starting. To work on the client with hot reload instead, run `npm run dev --workspace @flashlearn/frontend` on port 5173; it proxies `/api` to a `flashlearn start` server on port 4173, overridable with `FLASHLEARN_API`.
+Installed CLI commands default to the caller's working directory. Every command accepts `--project <directory>` (or `-p`) for that invocation, before or after the command. Relative paths resolve against cwd. `init [directory]`, `generate [directory]`, and `start [directory]` retain positional directories as compatibility aliases, mutually exclusive with `--project`.
+
+**Migration:** `FLASHLEARN_PROJECT` and saved user configuration are ignored and left untouched. `project set` returns an argument error (exit code 2) with migration guidance. Use `project show` to inspect this invocation's directory; `init` creates storage only.
+
+The recommended first run is `flashlearn generate` followed by `flashlearn start`. Generation initializes missing storage, so `init` is optional. Empty-deck startup asks for confirmation in a terminal (default no); non-interactive runs exit 1 with guidance. `flashlearn start --yes` (or `-y`) approves generation, which may use a configured AI endpoint. Existing decks are not regenerated; failed generation or a still-empty deck prevents startup.
+
+Scope extraction with `flashlearn generate --project /path/to/repo --subpath src --max-files 20`. The subpath must be a repository-relative directory without `..`; the limit must be a positive safe integer and counts supported files, not cards. These are `generate` options only. Source paths remain repository-relative. Generation upserts cards without deleting cards outside the scan; it exits 1 if no study cards are available afterward.
+
+`project show/status` and `question list/get` accept `-o, --output text|json|yaml` (default text). See the [CLI README](packages/cli/README.md) for complete syntax.
+
+`flashlearn start` serves the browser client that `packages/frontend` builds into `client/dist`. The development runner ensures that build is ready; the npm release includes it. To work on the client with hot reload instead, run `npm run dev --workspace @flashlearn/frontend` on port 5173; it proxies `/api` to a `flashlearn start` server on port 4173, overridable with `FLASHLEARN_API`.
 
 The CLI returns exit code `0` for success, `1` for execution failures, and `2` for invalid commands or arguments. See `packages/cli/README.md` for its dependency-injection and integration-test structure.
 
@@ -217,7 +226,7 @@ The baseline extractors derive cards from documentation already present in the s
 func Reconcile(ctx context.Context) error
 ```
 
-Exported declarations without a doc comment become locator cards naming the file that defines them. Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`.
+The export-signature extractor can produce locator candidates for undocumented exports, but the repository-wide validator rejects locator questions rather than storing them as study cards. It also filters short, repetitive, context-dependent, and duplicate content. Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`.
 
 To compare extraction output against a real repository:
 
@@ -225,4 +234,4 @@ To compare extraction output against a real repository:
 npm run report --workspace @flashlearn/extraction -- /path/to/repo
 ```
 
-The `QuestionExtractor` port is the seam for replacing this baseline with an LLM-backed implementation without changing storage or learning code.
+The `QuestionExtractor` port also supports the implemented endpoint-backed extractor. Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` enables it; optional authentication uses `FLASHLEARN_ENDPOINT_API_KEY`. Code is sent to that endpoint, whose permissions and retention are separate from local repository access controls. Without endpoint configuration, generation uses the offline deterministic baseline.

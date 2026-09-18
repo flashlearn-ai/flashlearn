@@ -1,4 +1,4 @@
-base="$(git merge-base origin/main HEAD)"
+base="$(git merge-base "${FLASHLEARN_SCOPE_BASE:-origin/main}" HEAD)"
 node scripts/check-package-scope.mjs "$base" HEAD
 npm run check
 npm run build

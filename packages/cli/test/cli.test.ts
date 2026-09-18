@@ -3,6 +3,7 @@ import test from "node:test";
 import { HELP, runCli } from "../src/cli.js";
 import type { CliWorkstream, ProjectStatus, StartOptions } from "../src/workstream.js";
 import type { Card } from "../../../contracts/index.js";
+import type { GenerateOptions } from "../src/dependencies.js";
 
 class RecordingCli implements CliWorkstream {
   calls: Array<{ method: string; root: string; options?: StartOptions }> = [];
@@ -18,11 +19,6 @@ class RecordingCli implements CliWorkstream {
 
   async start(root: string, options?: StartOptions): Promise<void> {
     this.calls.push({ method: "start", root, options });
-  }
-
-  async setProject(root: string): Promise<string> {
-    this.calls.push({ method: "set-project", root });
-    return root;
   }
 
   async resolveProject(directory?: string): Promise<string> {
@@ -68,7 +64,7 @@ test("shows contextual help for commands and subcommands", async () => {
   const cases = [
     [["init", "--help"], "Usage: flashlearn init [directory]"],
     [["start", "-h"], "Usage: flashlearn start [directory] [options]"],
-    [["help", "project", "set"], "Usage: flashlearn project set <directory>"],
+    [["help", "project", "show"], "Usage: flashlearn project show [options]"],
     [["question", "get", "--help"], "Usage: flashlearn question get <card-id> [options]"],
   ] as const;
 
@@ -80,12 +76,12 @@ test("shows contextual help for commands and subcommands", async () => {
   }
 });
 
-test("sets the default project", async () => {
+test("removed project set explains per-command selection", async () => {
   const cli = new RecordingCli();
   const output = capture();
-  assert.equal(await runCli(["project", "set", "demo"], cli, output.io), 0);
-  assert.deepEqual(cli.calls, [{ method: "set-project", root: "/project/demo" }]);
-  assert.match(output.stdout[0] ?? "", /Project saved: \/project\/demo/);
+  assert.equal(await runCli(["project", "set", "demo"], cli, output.io), 2);
+  assert.deepEqual(cli.calls, []);
+  assert.match(output.stderr[0] ?? "", /Use --project/);
 });
 
 test("shows the selected project in text and JSON", async () => {
@@ -151,11 +147,10 @@ test("guides first-time users from init to generate", async () => {
   assert.equal(await runCli(["init", "new repo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
     "Initialized /project/new repo/.flashlearn",
-    "Active project: /project/new repo",
     "",
     "Next:",
     "  # Generate study cards from this repository",
-    "  flashlearn generate",
+    "  flashlearn generate --project '/project/new repo'",
   ]);
 });
 
@@ -163,15 +158,16 @@ test("guides users from generation to start", async () => {
   const output = capture();
   assert.equal(await runCli(["generate", "demo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
-    "Generated and stored 0 cards",
+    "Generated and stored 0 cards (new or updated).",
+    "Study deck: 1 card available.",
     "",
     "Next:",
     "  # Start the local learning experience",
-    "  flashlearn start '/project/demo'",
+    "  flashlearn start --project '/project/demo'",
   ]);
 });
 
-test("uses the selected project when workflow directories are omitted", async () => {
+test("uses the working directory when workflow directories are omitted", async () => {
   const cli = new RecordingCli();
   const output = capture();
 
@@ -195,5 +191,160 @@ test("returns exit code 1 for command failures", async () => {
   const cli = new RecordingCli();
   cli.initialize = async () => { throw new Error("disk unavailable"); };
   assert.equal(await runCli(["init"], cli, output.io), 1);
-  assert.equal(output.stderr[0], "Error: disk unavailable");
+  assert.deepEqual(output.stderr, ["Project: /project", "Error: disk unavailable"]);
+});
+
+test("all command families use the explicit project or invocation cwd", async () => {
+  for (const prefix of [[], ["--project", "another repo"], ["--project=/absolute"], ["-p", "../relative"]]) {
+    const expected = prefix.length === 0 ? "/project" : prefix[0] === "--project=/absolute" ? "/absolute" : prefix[1] === "../relative" ? "/relative" : "/project/another repo";
+    for (const args of [["init"], ["generate"], ["start"], ["project", "show"], ["project", "status"], ["question", "get", "id"], ["question", "list"]]) {
+      const output = capture();
+      const cli = new RecordingCli();
+      const method = args[0] === "init" ? "initialize" : args[0] === "project" ? args[1] === "show" ? "resolveProject" : "status" : args[0] === "question" ? args[1] === "get" ? "getCard" : "listCards" : args[0] === "start" ? "listCards" : "generate";
+      Object.defineProperty(cli, method, { value: async (...values: unknown[]) => {
+        assert.equal(values[method === "getCard" ? 1 : 0], expected);
+        assert.equal(output.stderr[0], `Project: ${expected}`);
+        throw new Error("operation reached");
+      } });
+      assert.equal(await runCli([...prefix, ...args], cli, output.io), 1);
+      assert.equal(output.stderr.at(-1), "Error: operation reached");
+    }
+  }
+});
+
+test("project flag works after commands and keeps structured stdout clean", async () => {
+  const output = capture();
+  assert.equal(await runCli(["project", "show", "-o", "json", "-p", "other"], new RecordingCli(), output.io), 0);
+  assert.deepEqual(JSON.parse(output.stdout.join("\n")), { project: "/project/other" });
+  assert.deepEqual(output.stderr, ["Project: /project/other"]);
+});
+
+test("rejects missing/repeated project flags and ambiguous positional selection", async () => {
+  for (const args of [["init", "--project"], ["init", "--project="], ["init", "-p", "a", "--project", "b"], ["generate", "/old-dir", "-p", "new"], ["start", "old", "--project=new"]]) {
+    const output = capture();
+    const cli = new RecordingCli();
+    assert.equal(await runCli(args, cli, output.io), 2);
+    assert.deepEqual(cli.calls, []);
+  }
+});
+
+test("start generates only after acceptance and continues in the same project", async () => {
+  for (const approval of ["prompt", "--yes", "-y"]) {
+    const output = capture();
+    const cli = new RecordingCli();
+    const sample = await cli.getCard("card-1");
+    assert(sample);
+    let cards: Card[] = [];
+    const events: string[] = [];
+    cli.listCards = async () => cards;
+    cli.generate = async (root) => { events.push(`generate:${root}`); cards = [sample]; return cards; };
+    cli.start = async (root) => { events.push(`start:${root}`); };
+    const io = { ...output.io, confirm: async (message: string) => {
+      assert.equal(approval, "prompt");
+      assert.match(message, /configured AI endpoint/);
+      events.push("prompt");
+      return true;
+    } };
+    assert.equal(await runCli(["start", "-p", "demo", ...(approval === "prompt" ? [] : [approval])], cli, io), 0);
+    assert.deepEqual(events, [...(approval === "prompt" ? ["prompt"] : []), "generate:/project/demo", "start:/project/demo"]);
+  }
+});
+
+test("empty-deck start without approval gives prerequisites and does no work", async () => {
+  for (const interactive of [false, true]) {
+    const output = capture();
+    const cli = new RecordingCli();
+    cli.listCards = async () => [];
+    assert.equal(await runCli(["start"], cli, interactive ? { ...output.io, confirm: async () => false } : output.io), 1);
+    assert.deepEqual(cli.calls, []);
+    assert.match(output.stderr.join("\n"), /Required first step:/);
+    assert.match(output.stderr.join("\n"), /flashlearn generate --project '\/project'/);
+  }
+});
+
+test("start --yes stops when generation fails or leaves an empty deck", async () => {
+  for (const fails of [false, true]) {
+    const output = capture();
+    const cli = new RecordingCli();
+    cli.listCards = async () => [];
+    cli.generate = async (root) => {
+      cli.calls.push({ method: "generate", root });
+      if (fails) throw new Error("extraction unavailable");
+      return [];
+    };
+    assert.equal(await runCli(["start", "--yes"], cli, output.io), 1);
+    assert.deepEqual(cli.calls, [{ method: "generate", root: "/project" }]);
+    assert.match(output.stderr.join("\n"), fails ? /extraction unavailable/ : /No study cards are available/);
+  }
+});
+
+test("start with existing cards does not regenerate or prompt even with --yes", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  assert.equal(await runCli(["start", "--yes"], cli, { ...output.io, confirm: async () => { assert.fail("unexpected prompt"); } }), 0);
+  assert.deepEqual(cli.calls.map(({ method }) => method), ["start"]);
+});
+
+test("generate distinguishes empty output from an empty study deck", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  cli.listCards = async () => [];
+  assert.equal(await runCli(["generate"], cli, output.io), 1);
+  assert.match(output.stderr.join("\n"), /run generate again/);
+  assert(!output.stdout.join("\n").includes("flashlearn start"));
+});
+
+test("generate passes scoping options while retaining the repository root", async () => {
+  const output = capture();
+  const cli: CliWorkstream = new RecordingCli();
+  cli.generate = async (root: string, options?: GenerateOptions) => {
+    assert.equal(root, "/project/repo");
+    assert.deepEqual(options, { subpath: "src", maxFiles: 3 });
+    return [];
+  };
+  assert.equal(await runCli(["generate", "--subpath", "src", "--max-files", "3", "--project", "repo"], cli, output.io), 0);
+});
+
+test("rejects invalid extraction limits and misplaced options before generation", async () => {
+  for (const args of [
+    ...["0", "-1", "1.5", "NaN", "Infinity", "1e2", "9007199254740992"].map((value) => ["generate", "--max-files", value]),
+    ["generate", "--max-files"], ["generate", "--subpath"], ["generate", "--subpath", " "],
+    ["generate", "--subpath", "../escape"], ["generate", "--subpath", "/absolute"],
+    ["generate", "--max-files", "1", "--max-files", "2"],
+    ["start", "--subpath", "src"], ["init", "--max-files", "2"],
+  ]) {
+    const cli = new RecordingCli();
+    assert.equal(await runCli(args, cli, capture().io), 2);
+    assert.deepEqual(cli.calls, []);
+  }
+});
+
+test("question YAML preserves empty tags on a card and in a card list", async () => {
+  const cli = new RecordingCli();
+  const card = await cli.getCard("card-1");
+  assert(card);
+  card.tags = [];
+  cli.getCard = async () => card;
+  for (const subcommand of ["get", "list"]) {
+    const output = capture();
+    assert.equal(await runCli(["question", subcommand, ...(subcommand === "get" ? [card.id] : []), "-o", "yaml"], cli, output.io), 0);
+    const indent = subcommand === "get" ? "" : "  ";
+    const expected = [
+      `${subcommand === "get" ? "" : "- "}id: "card-1"`,
+      `${indent}question: "Question?"`,
+      `${indent}answer: "Answer."`,
+      `${indent}source:`,
+      `${indent}  path: "src/a.ts"`,
+      `${indent}  sha: "abc"`,
+      `${indent}tags:`,
+      `${indent}  []`,
+      `${indent}createdAt: "now"`,
+      `${indent}updatedAt: "now"`,
+    ].join("\n");
+    assert.equal(output.stdout.join("\n"), expected);
+  }
+  cli.listCards = async () => [];
+  const output = capture();
+  assert.equal(await runCli(["question", "list", "-o", "yaml"], cli, output.io), 0);
+  assert.deepEqual(output.stdout, ["[]"]);
 });

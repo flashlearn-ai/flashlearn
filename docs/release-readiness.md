@@ -67,7 +67,18 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 The wrapper reports the public manifest version; all other commands delegate to the existing bundled CLI. Node built-ins remain external. The build rejects unresolved non-builtin imports. The frontend resolves `../client/dist/` relative to the installed bundle, not the user's working directory. Browser dependencies carry upstream React/ReactDOM/scheduler notices.
 
-The allowlisted tarball contains no workspace sources, development tooling, Husky setup, or private package dependencies. Installing it requires Node.js 22.14+; Git is required for commit attribution. Current installed command behavior is documented in `release/README.md` and `/docs/` on the site. Pending CLI changes must update both when they merge.
+The allowlisted tarball contains no workspace sources, development tooling, Husky setup, or private package dependencies. Installing it requires Node.js 22.14+; Git is required for commit attribution. Installed command behavior is documented in `release/README.md` and `/docs/` on the site. CLI changes must update both in the same PR.
+
+### CLI behavior to verify before release
+
+- Every command defaults to cwd. `--project`/`-p` selects a directory for one invocation; relative paths resolve against cwd. Positional directories remain supported for `init`, `generate`, and `start`, mutually exclusive with `--project`.
+- `FLASHLEARN_PROJECT` and legacy saved user configuration are ignored and left untouched. `project set` returns exit code 2 with migration guidance. `project show` reports this invocation's directory; `init` only initializes storage.
+- Recommend `generate` → `start`: generation automatically initializes missing storage; `init` is optional. Empty-deck startup prompts in a terminal (default no), or exits 1 with guidance non-interactively. `start --yes`/`-y` approves generation, including use of a configured endpoint. Existing decks are not regenerated. Failed generation or a still-empty deck prevents startup.
+- `generate --subpath src --max-files 20` scopes extraction without changing the project root or attribution. The subpath must be a repository-relative directory without `..`; the file limit must be a positive safe integer. These flags are generation-only. Generation upserts rather than pruning and exits 1 if no study cards remain available.
+- Queries support `-o, --output text|json|yaml`. Project diagnostics and generation progress go to stderr. For source-runner JSON/YAML, use `npm --silent run cli -- project status --project /path/to/repo -o json`; the runner uses the repository root as cwd and ensures sibling build outputs are ready.
+- Offline extraction stays local. Configured endpoint mode sends code to that endpoint; its access controls and retention are separate from repository permissions.
+
+For stacked PRs, each documentation change must describe behavior available with that PR and its merged base. Document later frontend changes with their owning PR. Owner workstream completion requires the agreed deliverable to be completed and merged, not just passing tests.
 
 ## npm account setup and first publication
 
