@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  # PR merges push a new commit to main; validate that resulting commit too.
   push:
     branches: [main]
 
