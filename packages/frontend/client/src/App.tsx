@@ -69,10 +69,11 @@ export default function App() {
     const startedIn = liveSession.current;
     if (entry) {
       void submitReview(entry.card.id, g).then((outcome) => {
-        if (startedIn !== liveSession.current) return;
-        setCards((c) => c.map((item, i) => (i === at ? { ...item, outcome } : item)));
         if (outcome.recorded) {
           setReviewEvents(recordReviewEvent(entry.card.id, entry.card.topic, g));
+        }
+        if (startedIn !== liveSession.current) return;
+        setCards((c) => c.map((item, i) => (i === at ? { ...item, outcome } : item)));
         }
       });
     }
