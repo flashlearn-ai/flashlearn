@@ -34,7 +34,7 @@ npm run check
 npm run build
 ```
 
-`npm run check` validates package boundaries, typechecks every workspace, runs the repository script tests, and runs all workspace tests.
+`npm run check` validates package boundaries, confirms the lockfile resolves from the public npm registry, typechecks every workspace, runs the repository script tests, and runs all workspace tests.
 
 Scripts under `scripts/` are covered by `test/*.test.mjs` at the repository root, run through `npm run test:scripts`. Workspace tests stay inside their own package.
 
