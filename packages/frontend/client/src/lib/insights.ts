@@ -24,6 +24,14 @@ type LocalStore = Pick<Storage, "getItem" | "setItem">;
 
 const RESULTS = new Set<ReviewResult>(["easy", "hard", "correct", "incorrect"]);
 
+function browserStore(): LocalStore | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 function isReviewEvent(value: unknown): value is ReviewEvent {
   if (typeof value !== "object" || value === null) return false;
   const event = value as Partial<ReviewEvent>;
@@ -36,9 +44,11 @@ function isReviewEvent(value: unknown): value is ReviewEvent {
     && !Number.isNaN(Date.parse(event.reviewedAt));
 }
 
-export function loadReviewEvents(store: LocalStore = window.localStorage): ReviewEvent[] {
+export function loadReviewEvents(store?: LocalStore | null): ReviewEvent[] {
+  const availableStore = store === undefined ? browserStore() : store;
+  if (!availableStore) return [];
   try {
-    const value: unknown = JSON.parse(store.getItem(REVIEW_HISTORY_KEY) ?? "[]");
+    const value: unknown = JSON.parse(availableStore.getItem(REVIEW_HISTORY_KEY) ?? "[]");
     return Array.isArray(value) ? value.filter(isReviewEvent) : [];
   } catch {
     return [];
@@ -49,10 +59,12 @@ export function recordReviewEvent(
   cardId: string,
   topic: Topic,
   result: ReviewResult,
-  store: LocalStore = window.localStorage,
+  store?: LocalStore | null,
   now = new Date(),
 ): ReviewEvent[] {
-  const events = [...loadReviewEvents(store), {
+  const availableStore = store === undefined ? browserStore() : store;
+  if (!availableStore) return [];
+  const events = [...loadReviewEvents(availableStore), {
     cardId,
     topicId: topic.id,
     topicLabel: topic.label,
@@ -60,9 +72,9 @@ export function recordReviewEvent(
     reviewedAt: now.toISOString(),
   }].slice(-MAX_EVENTS);
   try {
-    store.setItem(REVIEW_HISTORY_KEY, JSON.stringify(events));
+    availableStore.setItem(REVIEW_HISTORY_KEY, JSON.stringify(events));
   } catch {
-    return loadReviewEvents(store);
+    return loadReviewEvents(availableStore);
   }
   return events;
 }

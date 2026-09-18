@@ -46,6 +46,28 @@ test("ignores malformed local history instead of breaking the client", () => {
   assert.deepEqual(loadReviewEvents(memoryStore("not json")), []);
 });
 
+test("treats unavailable browser storage as optional", () => {
+  assert.deepEqual(loadReviewEvents(null), []);
+  assert.deepEqual(recordReviewEvent("card-1", { id: "cli", label: "CLI" }, "easy", null), []);
+});
+
+test("survives a browser that denies access to localStorage", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: Object.defineProperty({}, "localStorage", {
+      get() { throw new DOMException("Access denied", "SecurityError"); },
+    }),
+  });
+  try {
+    assert.deepEqual(loadReviewEvents(), []);
+    assert.deepEqual(recordReviewEvent("card-1", { id: "cli", label: "CLI" }, "easy"), []);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "window", descriptor);
+    else delete (globalThis as { window?: unknown }).window;
+  }
+});
+
 test("orders topic insights hardest first and preserves grade detail", () => {
   const events: ReviewEvent[] = [
     { cardId: "1", topicId: "cli", topicLabel: "CLI", result: "easy", reviewedAt: "2026-09-18T10:00:00.000Z" },
