@@ -11,6 +11,7 @@ import { ROOT, npmCommand, releaseManifest, run } from "./release-lib.mjs";
 const manifest = await releaseManifest();
 const tarball = join(ROOT, ".release/flashlearn.tgz");
 const receipt = JSON.parse(await readFile(join(ROOT, ".release/artifact.json"), "utf8"));
+assert.equal(receipt.name, manifest.name);
 assert.equal(receipt.version, manifest.version);
 assert.equal(receipt.sha256, createHash("sha256").update(await readFile(tarball)).digest("hex"));
 const temp = await mkdtemp(join(tmpdir(), "flashlearn installed "));
@@ -20,7 +21,12 @@ let server;
 try {
   await writeFile(join(temp, "package.json"), '{"private":true}');
   run(npmCommand, ["install", tarball, "--ignore-scripts", "--no-audit", "--no-fund"], { cwd: temp, env });
-  const entrypoint = join(temp, "node_modules/flashlearn/dist/index.js");
+  const installedRoot = join(temp, "node_modules", manifest.name);
+  const installedManifest = JSON.parse(await readFile(join(installedRoot, "package.json"), "utf8"));
+  assert.equal(installedManifest.name, manifest.name);
+  assert.equal(installedManifest.version, manifest.version);
+  assert.deepEqual(installedManifest.bin, { flashlearn: "dist/index.js" });
+  const entrypoint = join(installedRoot, "dist/index.js");
   // Verify the npm-created shim separately, then exercise project paths through
   // Node without a shell so Windows spaces are not interpreted as separators.
   assert.match(run(npmCommand, ["exec", "--offline", "--", "flashlearn", "--help"], { cwd: temp, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }), /Usage: flashlearn/);
@@ -47,7 +53,7 @@ try {
   await new Promise((done) => probe.listen(0, "127.0.0.1", done));
   const port = probe.address().port;
   await new Promise((done) => probe.close(done));
-  server = spawn(process.execPath, [join(temp, "node_modules/flashlearn/dist/index.js"), "start", project, "--host", "127.0.0.1", "--port", String(port)], { cwd: temp, env, stdio: ["ignore", "pipe", "pipe"] });
+  server = spawn(process.execPath, [entrypoint, "start", project, "--host", "127.0.0.1", "--port", String(port)], { cwd: temp, env, stdio: ["ignore", "pipe", "pipe"] });
   const base = `http://127.0.0.1:${port}`;
   let response;
   for (let i = 0; i < 100; i++) {

@@ -187,6 +187,10 @@ Contract ownership is:
 
 For packaging, publishing, and website deployment, see the [npm and GitHub Pages release runbook](docs/release-readiness.md). `npm run release:check` builds and tests the installable CLI tarball. `npm run site:build` builds the landing page, docs, and sample demo; `npm run site:preview` serves them locally at `http://127.0.0.1:4182/flashlearn/`. Publishing and deployment require the owner setup described in the runbook.
 
+The public npm package is `@flashlearnai/cli` and installs the `flashlearn` executable. After the first publication, install with `npm install --global @flashlearnai/cli` or run `npx @flashlearnai/cli --help`.
+
+Once npm trusted publishing is configured, publishing a GitHub Release triggers the OIDC npm workflow. Its tag must match `release/package.json` on a commit in `main`; see the runbook for stable/prerelease selection and first-publication setup.
+
 ```bash
 npm install
 npm run check

@@ -8,12 +8,13 @@ source-attributed study cards and review them in a local Teams-style interface.
 Requires Node.js 22.14+ and Git on PATH for Git attribution.
 
 ```bash
-npm install --global flashlearn@next
+npm install --global @flashlearnai/cli
 flashlearn --help
 flashlearn --version
 ```
 
-Or run without a global installation: `npx flashlearn@next --help`.
+Or run without a global installation: `npx @flashlearnai/cli --help`.
+The npm package is `@flashlearnai/cli`; the executable is `flashlearn`.
 The package includes compiled JavaScript and the live UI. No workspace build,
 TypeScript, or tsx installation is required.
 
@@ -113,7 +114,7 @@ not read your project, contact an API, or save a learning-engine schedule.
 ## Upgrade and support
 
 ```bash
-npm install --global flashlearn@next
+npm install --global @flashlearnai/cli
 ```
 
 Report reproducible issues at https://github.com/flashlearn-ai/flashlearn/issues

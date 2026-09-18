@@ -2,7 +2,7 @@
 
 This repository produces two release artifacts from the five private workspaces:
 
-- `.release/flashlearn.tgz`: self-contained `flashlearn` CLI/server plus the live React client.
+- `.release/flashlearn.tgz`: self-contained `@flashlearnai/cli` package with the `flashlearn` executable/server plus the live React client.
 - `.release/site/`: landing page, tool documentation, and the sample-only web demo.
 
 ## Local verification
@@ -58,7 +58,7 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 ## npm artifact
 
-`release/package.json` is the public manifest and release version source. The root and all implementation workspaces remain private. The initial version is `0.1.0-next.0`, with MIT licensing approved by the project owner.
+`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.1.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
 
 ```text
 .release/npm/
@@ -87,7 +87,24 @@ For stacked PRs, each documentation change must describe behavior available with
 
 ## npm account setup and first publication
 
-The proposed name is `flashlearn`; registry lookup currently returns 404, which does not establish account ownership or reserve the name. An npm owner must confirm control of this name, or change `release/package.json`, the manifest validator, and documented installation name to an owned scope before publishing.
+The package name is `@flashlearnai/cli`. The publishing account must have permission to publish under the `@flashlearnai` organization scope. Confirm membership with `npm org ls flashlearnai`.
+
+### Manual first publication
+
+From the repository root, build and test the artifact, then publish with your npm account. This first release uses `latest` because `0.1.0` has no prerelease suffix. Local publication explicitly disables provenance; the OIDC workflow will enable it for future releases.
+
+```bash
+npm ci
+npm run release:check
+npm whoami
+npm publish .release/flashlearn.tgz --access public --tag latest --provenance=false
+npm view @flashlearnai/cli@0.1.0 version dist-tags
+npx --yes @flashlearnai/cli@0.1.0 --version
+```
+
+Publish the exact tarball checked by `release:check`. It writes matching SHA-256 receipts in `.release/artifact.json` and `.release/tested.json`. Do not edit or rebuild the artifact between verification and publication. npm may request account/2FA approval. Record the corresponding release commit before setting up GitHub-Release-driven publishing.
+
+### Subsequent releases with OIDC
 
 Configure npm trusted publishing for:
 
@@ -99,17 +116,21 @@ Configure npm trusted publishing for:
 
 Current npm OIDC support requires npm 11.5.1+ and Node 22.14+. The workflow pins npm 11.12.1 and uses Node 24 on a GitHub-hosted runner. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers).
 
-For a brand-new package, complete npm's owner-authenticated first-publication/bootstrap process if package settings are not available yet. Use the exact packed/tested artifact, select `next` for a prerelease, and then configure the trusted publisher for subsequent releases. Do not assume an unregistered package can receive its first OIDC publish. No registry credentials or account changes are performed by these scripts.
+After the owner-authenticated first publication, configure the trusted publisher on `@flashlearnai/cli` and the GitHub `npm-publish` environment. No registry credentials or account changes are performed by these scripts.
+
+In npm, open the package **Settings → Trusted publishing**, choose GitHub Actions, and enter the values above. The npm organization (`flashlearnai`) and GitHub organization (`flashlearn-ai`) are different names. In GitHub **Settings → Environments**, create `npm-publish`; if deployment branch/tag restrictions are enabled, allow version tags such as `v*`, since release jobs run against tags. Optional required reviewers must approve the deployment before publishing starts. No `NPM_TOKEN` or `NODE_AUTH_TOKEN` secret is needed; `id-token: write` enables npm's OIDC exchange.
 
 ## Release workflow
 
 1. Update `release/package.json` in a reviewed commit on `main`; keep install examples and site docs synchronized.
 2. Run `release:check` and inspect `.release/artifact.json`.
-3. Create/push the matching tag, for example `v0.1.0-next.0`, once account setup is complete.
-4. **npm release** verifies tag/version agreement and that the tagged commit is on `main`.
-5. It rebuilds, packs, and installs/tests the artifact, then verifies its digest immediately before publishing.
-6. It publishes the exact `.tgz` with provenance: prereleases use `next`, stable versions use `latest`.
-7. A separate job creates matching GitHub release notes after publication succeeds.
+3. Open **Releases → Draft a new release**. Choose a matching tag (for example `v0.1.1`) at the reviewed `main` commit and write or generate the release notes. For a version with a suffix (for example `0.2.0-beta.0`), select **Set as a pre-release**; for `0.1.1`, leave it unchecked.
+4. Click **Publish release**. The `release: published` event triggers **npm release** for both stable releases and prereleases. Drafts, edits, and tag pushes alone do not publish. Merge this workflow before creating the release; releases created with another workflow's default `GITHUB_TOKEN` do not trigger downstream workflows, so use the GitHub UI or `gh release create` with your own authenticated account.
+5. The workflow checks out the release tag, verifies tag/version/prerelease agreement and that the tagged commit is on `main`, then rebuilds, packs, and installs/tests the artifact.
+6. It verifies both artifact receipts and publishes the exact `.tgz` using OIDC with provenance: prereleases use `next`, stable versions use `latest`. It verifies the registry's SHA-512 integrity afterward.
+7. The final job attaches `flashlearn.tgz` and `artifact.json` to the existing GitHub Release. The workflow does not create another release.
+
+If publication or attachment fails, use **Actions → npm release → Re-run all jobs**. An existing npm version is skipped only when its registry integrity matches the freshly tested tarball exactly; differing bytes fail and require a new version. A rerun does not change dist-tags or add provenance to an existing manual publication. To avoid republishing the bootstrap release, start automated releases with a new version such as `0.1.1`. A GitHub Release becomes visible before npm publication completes; check the workflow result before announcing availability.
 
 The workflow requires the `npm-publish` environment and npm trusted publisher to be configured by the owner. No long-lived npm token is used. Provenance is verified on the registry after a real release; it cannot be proven by a local dry run.
 

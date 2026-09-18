@@ -3,7 +3,7 @@
 <body><header><a class="brand" href="../"><img src="../icon.png" alt="" width="40" height="40">FlashLearn</a><nav aria-label="Main navigation"><a href="../">Home</a><a href="../demo/">Web demo</a><a href="https://github.com/flashlearn-ai/flashlearn">Source ↗</a></nav></header>
 <main class="docs"><p class="eyebrow">Tool documentation</p><h1>Get familiar with your next project.</h1><p>Source existing content, generate focused study cards, and build recall through small review sessions.</p>
 <nav class="docnav" aria-label="Documentation sections"><a href="#install">Install</a><a href="#quickstart">Quick start</a><a href="#commands">Commands</a><a href="#privacy">Privacy</a><a href="#demo">Demo</a><a href="#integrations">Integrations</a></nav>
-<section id="install"><h2>Installation</h2><p>Requires Node.js 22.14 or newer. Install Git for source commit attribution. The npm prerelease is version <strong>@@VERSION@@</strong>.</p><p class="callout">The publishing workflow is ready; these npm commands require the maintainer to publish the first prerelease. You can use a source checkout immediately.</p><pre><code>npm install --global flashlearn@next
+<section id="install"><h2>Installation</h2><p>Requires Node.js 22.14 or newer. Install Git for source commit attribution. The npm package is <code>@flashlearnai/cli</code>, version <strong>@@VERSION@@</strong>; the executable is <code>flashlearn</code>.</p><p class="callout">These npm commands become available after the first publication. You can use a source checkout immediately.</p><pre><code>npm install --global @flashlearnai/cli
 flashlearn --help
 flashlearn --version</code></pre><p>From a source checkout:</p><pre><code>npm ci
 npm run build
