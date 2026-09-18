@@ -4,6 +4,8 @@
 
 <h1 align="center">FlashLearn</h1>
 
+<p align="center"><a href="https://flashlearn-ai.github.io/flashlearn/">Visit the FlashLearn website</a></p>
+
 <p align="center"><strong>Agentic AI for compounding learning velocity.</strong></p>
 
 <p align="center">Onboard effectively to unfamiliar code repositories by turning their source into attributed study cards and a local spaced-repetition experience.</p>
