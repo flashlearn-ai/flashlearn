@@ -2,6 +2,8 @@
 
 **Owner:** Sara
 
+Multiple-choice options hide leading documented symbol names and sample distractors across the deck. Original card answers and source attribution remain intact; the session's confusion lookup uses the same normalization as the displayed choices.
+
 Two halves in one package. `src/` is the Node server that answers the four locked HTTP endpoints and serves the built client. `client/` is the browser client, a Vite and React tree with its own tsconfig, because the server compiles to `NodeNext` and emits while the client resolves through a bundler and does not.
 
 `createFlashLearnServer(services)` is what the CLI composes; `FrontendServices` is an injected consumer port, not frontend-owned business logic. Do not access JSON storage or implement scheduling here. `MockFrontendServices` supplies empty API data for building against.
