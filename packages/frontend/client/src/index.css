@@ -251,6 +251,14 @@ img{ -webkit-user-drag:none; user-select:none }
 .run .bars i{width:12px;height:5px;border-radius:2px;background:#e0e5e0;transition:background .3s}
 .run .bars i.ok{background:var(--emerald)}
 .run .bars i.no{background:var(--bad)}
+.insights{display:flex;flex-direction:column;gap:12px}
+.insight{display:flex;flex-direction:column;gap:5px}
+.insight-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--ink-2)}
+.insight-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insight-head b{font-family:var(--mono);font-size:11px;color:var(--forest)}
+.insight-track{display:block;height:6px;border-radius:3px;background:#e1e6e2;overflow:hidden}
+.insight-track i{display:block;height:100%;border-radius:inherit;background:var(--emerald)}
+.insight small{font-size:10.5px;color:var(--faint)}
 
 /* ---------------- motion ---------------- */
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
