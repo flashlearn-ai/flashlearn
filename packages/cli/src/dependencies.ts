@@ -16,9 +16,14 @@ export interface FrontendServices {
 
 export type ServerHandle = unknown;
 
+export type GenerateOptions = {
+  subpath?: string;
+  maxFiles?: number;
+};
+
 export interface CliDependencies {
   initializeStore(root: string): Promise<void>;
-  generateCards(root: string): Promise<GeneratedCard[]>;
+  generateCards(root: string, options?: GenerateOptions): Promise<GeneratedCard[]>;
   createCardRepository(root: string): CardRepository;
   createReviewRepository(root: string): ReviewRepository;
   scheduleReview(state: ReviewState, result: ReviewResult, now?: Date): ReviewState;
@@ -26,9 +31,5 @@ export interface CliDependencies {
   createServer(services: FrontendServices): ServerHandle;
   listenServer(server: ServerHandle, host: string, port: number): Promise<void>;
   isDirectory(path: string): Promise<boolean>;
-  loadSavedProject(): Promise<string | null>;
-  saveProject(path: string): Promise<void>;
-  environmentProject(): string | undefined;
-  setEnvironmentProject(path: string): void;
   now(): Date;
 }

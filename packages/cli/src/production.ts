@@ -7,12 +7,11 @@ import { scheduleReview, selectNextCard } from "@flashlearn/learning";
 import { initializeStore, JsonCardRepository, JsonReviewRepository } from "@flashlearn/storage";
 import type { CliDependencies } from "./dependencies.js";
 import { flashlearnRoot } from "./paths.js";
-import { loadSavedProject, PROJECT_ENV, saveProject } from "./project-config.js";
 
 export function createProductionDependencies(): CliDependencies {
   return {
     initializeStore,
-    generateCards,
+    generateCards: (root, options) => generateCards(root, undefined, options),
     createCardRepository: (root) => new JsonCardRepository(join(flashlearnRoot(root), "cards.json")),
     createReviewRepository: (root) => new JsonReviewRepository(join(flashlearnRoot(root), "review.json")),
     scheduleReview,
@@ -37,10 +36,6 @@ export function createProductionDependencies(): CliDependencies {
         throw error;
       }
     },
-    loadSavedProject,
-    saveProject,
-    environmentProject: () => process.env[PROJECT_ENV],
-    setEnvironmentProject: (path) => { process.env[PROJECT_ENV] = path; },
     now: () => new Date(),
   };
 }

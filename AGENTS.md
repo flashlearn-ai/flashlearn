@@ -38,7 +38,7 @@ npm run build
 
 Scripts under `scripts/` are covered by `test/*.test.mjs` at the repository root, run through `npm run test:scripts`. Workspace tests stay inside their own package.
 
-Run the source CLI from the repository root with `npm run cli -- <command>`. The script builds sibling packages first and preserves the root working directory for default project resolution.
+Run the source CLI from the repository root with `npm run cli -- <command>`. The runner uses input/output fingerprints to reuse valid sibling builds and rebuild changed or missing outputs, including the live frontend bundle. Cache metadata lives in `node_modules/.cache/flashlearn/`. It uses the repository root as its working directory. Use `--project` to target another directory and `npm --silent run cli -- project status -o json` for structured stdout; build logs and project/progress diagnostics belong on stderr.
 
 GitHub CI exposes four independent statuses:
 
@@ -48,6 +48,8 @@ GitHub CI exposes four independent statuses:
 - `CI / Build` runs the whole-project build and compiled CLI smoke tests.
 
 Husky installs through the root `prepare` script. Pre-commit runs package boundaries, staged whitespace checks, and the generated-content gate. Pre-push runs package scope, `npm run check`, and `npm run build`. Hooks provide early feedback, but CI remains authoritative because hooks can be bypassed.
+
+For stacked PRs, push with `FLASHLEARN_SCOPE_BASE=<parent-branch> git push` so the local package-scope check compares against the intended PR base. The default remains `origin/main`; CI always checks the actual PR base. Merge parent PRs first and rebase/retarget children before merging them.
 
 Generated cards and ingested repository content are local-only. `.gitignore` is not sufficient on its own because `git add -f` bypasses it, which is why the gate runs in CI. Legitimate sample data belongs under a `test/fixtures/` directory.
 
@@ -115,10 +117,13 @@ Contract changes require coordinated review because all five workstreams may dep
 
 ### CLI
 
-- Commands are `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, `flashlearn project set <directory>`, `flashlearn project show`, `flashlearn project status`, `flashlearn question get <card-id>`, and `flashlearn question list`.
-- Query commands support `-o, --output text|json|yaml` and resolve the selected project from `FLASHLEARN_PROJECT` before the saved user config.
-- `set-project` persists the default under `${XDG_CONFIG_HOME:-~/.config}/flashlearn/config.json`; a child CLI process cannot permanently modify its parent shell environment.
-- General options are `--help`, `-h`, `--version`, and `-v`; start also accepts `--host` and `--port`.
+- Commands are `flashlearn init [directory]`, `flashlearn generate [directory]`, `flashlearn start [directory]`, `flashlearn project show`, `flashlearn project status`, `flashlearn question get <card-id>`, and `flashlearn question list`.
+- Every command defaults to the invocation's working directory. `-p, --project <directory>` overrides it for that invocation, before or after the command; relative paths resolve against cwd. Positional lifecycle directories remain supported but cannot be combined with `--project`. Repeated project flags are invalid.
+- `FLASHLEARN_PROJECT` and the old saved user config are ignored and left untouched. `project set` is removed and returns exit code 2 with migration guidance. `init` only initializes storage, never a future project selection.
+- Query commands support `-o, --output text|json|yaml`. Project diagnostics and generation progress go to stderr, keeping query stdout parseable; help/version omit project diagnostics.
+- Recommend `generate` then `start`: generation initializes missing storage automatically, making `init` optional. An empty-deck `start` asks for confirmation in a terminal (default no); non-interactive runs fail with guidance unless `--yes`/`-y` approves generation, which may use a configured endpoint. Existing cards are not regenerated. Failed generation or a still-empty deck prevents startup.
+- `generate --subpath <directory> --max-files <number>` passes extraction scope without changing the project root. Subpaths must be repository-relative directories without `..`; the file limit must be a positive safe integer. These flags belong to `generate` only. Generation upserts rather than pruning existing cards; no available study cards afterward means exit code 1.
+- General options are `--help`, `-h`, `--version`, and `-v`; start also accepts `--host` and `--port` (default `localhost:4173`; wildcard hosts `0.0.0.0` and `::` are rejected).
 - Exit code `0` means success, `1` means execution failure, and `2` means invalid arguments.
 - `src/index.ts` is the executable entrypoint, `src/cli.ts` parses commands, `CliService` orchestrates, and `src/production.ts` wires real package implementations.
 - Keep external capabilities behind the CLI-owned interfaces in `src/dependencies.ts` so orchestration stays testable.

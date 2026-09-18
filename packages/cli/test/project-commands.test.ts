@@ -15,37 +15,26 @@ async function projectWithCard() {
   return { dependencies, root, service, card };
 }
 
-test("saves a selected project and sets the process environment adapter", async () => {
+test("project resolution uses cwd or the supplied directory", async () => {
   const dependencies = new RecordingDependencies();
-  const root = resolve("/repo");
-  dependencies.directories.add(root);
+  dependencies.directories.add(resolve("."));
+  dependencies.directories.add(resolve("other"));
   const service = new CliService(dependencies);
-
-  assert.equal(await service.setProject(root), root);
-  assert.equal(dependencies.savedProject, root);
-  assert.equal(dependencies.environmentProjectPath, root);
-});
-
-test("prefers an environment project over the saved project", async () => {
-  const dependencies = new RecordingDependencies();
-  dependencies.environmentProjectPath = resolve("/environment");
-  dependencies.savedProject = resolve("/saved");
-  dependencies.directories.add(dependencies.environmentProjectPath);
-  const service = new CliService(dependencies);
-
-  assert.equal(await service.resolveProject(), dependencies.environmentProjectPath);
+  assert.equal(await service.resolveProject(), resolve("."));
+  assert.equal(await service.resolveProject("other"), resolve("other"));
+  await assert.rejects(() => service.resolveProject("missing"), /Project directory not found/);
 });
 
 test("reads cards from the selected project's repository", async () => {
   const { dependencies, root, service, card } = await projectWithCard();
-  dependencies.savedProject = root;
-  assert.deepEqual(await service.getCard(card.id), card);
-  assert.deepEqual(await service.listCards(), [card]);
+  dependencies.directories.add(resolve("."));
+  assert.deepEqual(await service.getCard(card.id, root), card);
+  assert.deepEqual(await service.listCards(root), [card]);
+  assert.deepEqual(await service.listCards(), []);
 });
 
 test("summarizes selected project review status", async () => {
   const { dependencies, root, service, card } = await projectWithCard();
-  dependencies.savedProject = root;
   dependencies.createReviewRepository(root).states.set(card.id, {
     cardId: card.id,
     easeFactor: 2.5,
@@ -55,9 +44,9 @@ test("summarizes selected project review status", async () => {
     nextReview: "2026-01-01T00:00:00.000Z",
   });
 
-  assert.deepEqual(await service.status(), { project: root, cards: 1, reviewed: 1, unreviewed: 0, due: 1 });
+  assert.deepEqual(await service.status(root), { project: root, cards: 1, reviewed: 1, unreviewed: 0, due: 1 });
 });
 
-test("requires a selected project for query commands", async () => {
-  await assert.rejects(() => new CliService(new RecordingDependencies()).listCards(), /project set/);
+test("requires an existing directory for query commands", async () => {
+  await assert.rejects(() => new CliService(new RecordingDependencies()).listCards(), /Project directory not found/);
 });

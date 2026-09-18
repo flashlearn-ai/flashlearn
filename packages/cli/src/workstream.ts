@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Card, ReviewResult } from "../../../contracts/index.js";
-import type { CliDependencies, FrontendServices } from "./dependencies.js";
+import type { CliDependencies, FrontendServices, GenerateOptions } from "./dependencies.js";
 import { projectRoot } from "./paths.js";
 
 export type StartOptions = {
@@ -18,14 +18,16 @@ export type ProjectStatus = {
 
 export interface CliWorkstream {
   initialize(root: string): Promise<void>;
-  generate(directory: string): Promise<Card[]>;
+  generate(directory: string, options?: GenerateOptions): Promise<Card[]>;
   start(root: string, options?: StartOptions): Promise<void>;
-  setProject(directory: string): Promise<string>;
   resolveProject(directory?: string): Promise<string>;
   getCard(id: string, directory?: string): Promise<Card | null>;
   listCards(directory?: string): Promise<Card[]>;
   status(directory?: string): Promise<ProjectStatus>;
 }
+
+// Shared by server/service instances in this process, keyed by project and card.
+const pendingReviews = new Map<string, Promise<void>>();
 
 export class CliService implements CliWorkstream {
   constructor(private readonly dependencies: CliDependencies) {}
@@ -33,14 +35,13 @@ export class CliService implements CliWorkstream {
   async initialize(root: string): Promise<void> {
     const rootPath = projectRoot(root);
     await this.dependencies.initializeStore(rootPath);
-    await this.setProject(rootPath);
   }
 
-  async generate(directory: string): Promise<Card[]> {
+  async generate(directory: string, options?: GenerateOptions): Promise<Card[]> {
     const root = projectRoot(directory);
     await this.dependencies.initializeStore(root);
     const repository = this.dependencies.createCardRepository(root);
-    const generatedCards = await this.dependencies.generateCards(root);
+    const generatedCards = await this.dependencies.generateCards(root, options);
     const updatedAt = this.dependencies.now().toISOString();
     const cards: Card[] = [];
 
@@ -77,7 +78,7 @@ export class CliService implements CliWorkstream {
         const states = await Promise.all(allCards.map(({ id }) => reviews.get(id)));
         return this.dependencies.selectNextCard(allCards, states, this.dependencies.now());
       },
-      submitReview: async (cardId: string, result: ReviewResult) => {
+      submitReview: (cardId: string, result: ReviewResult) => this.serializeReview(rootPath, cardId, async () => {
         if (!await cards.get(cardId)) throw new Error(`Card not found: ${cardId}`);
         const state = this.dependencies.scheduleReview(
           await reviews.get(cardId),
@@ -86,26 +87,14 @@ export class CliService implements CliWorkstream {
         );
         await reviews.save(state);
         return state;
-      },
+      }),
     };
     const server = this.dependencies.createServer(services);
     await this.dependencies.listenServer(server, options.host ?? "localhost", options.port ?? 4173);
   }
 
-  async setProject(directory: string): Promise<string> {
+  async resolveProject(directory = "."): Promise<string> {
     const root = projectRoot(directory);
-    if (!await this.dependencies.isDirectory(root)) throw new Error(`Directory not found: ${root}`);
-    await this.dependencies.saveProject(root);
-    this.dependencies.setEnvironmentProject(root);
-    return root;
-  }
-
-  async resolveProject(directory?: string): Promise<string> {
-    const selected = directory
-      ?? this.dependencies.environmentProject()
-      ?? await this.dependencies.loadSavedProject();
-    if (!selected) throw new Error("No project selected. Run `flashlearn project set <directory>`.");
-    const root = projectRoot(selected);
     if (!await this.dependencies.isDirectory(root)) throw new Error(`Project directory not found: ${root}`);
     return root;
   }
@@ -144,5 +133,18 @@ export class CliService implements CliWorkstream {
     ) {
       throw new Error("Extraction returned an invalid GeneratedCard");
     }
+  }
+
+  private serializeReview<T>(root: string, cardId: string, operation: () => Promise<T>): Promise<T> {
+    const key = JSON.stringify([root, cardId]);
+    // Queue the entire read/schedule/save transaction, not just the write.
+    const result = (pendingReviews.get(key) ?? Promise.resolve()).then(operation);
+    // A rejected request must reach its caller without poisoning later requests.
+    const settled = result.then(() => {}, () => {});
+    pendingReviews.set(key, settled);
+    void settled.then(() => {
+      if (pendingReviews.get(key) === settled) pendingReviews.delete(key);
+    });
+    return result;
   }
 }

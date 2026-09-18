@@ -38,11 +38,11 @@ try {
   run("git", ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "sample"], { cwd: project, env });
   cli(["init", project]);
   cli(["generate", project]);
-  const cards = JSON.parse(cli(["question", "list", "-o", "json"]));
+  const cards = JSON.parse(cli(["question", "list", "--project", project, "-o", "json"]));
   assert(cards.length > 0);
   assert.equal(cards[0].source.path, "README.md");
   assert.match(cards[0].source.sha, /^[a-f0-9]{40}$/);
-  assert.equal(JSON.parse(cli(["question", "get", cards[0].id, "-o", "json"])).id, cards[0].id);
+  assert.equal(JSON.parse(cli(["question", "get", cards[0].id, "--project", project, "-o", "json"])).id, cards[0].id);
   const probe = createServer();
   await new Promise((done) => probe.listen(0, "127.0.0.1", done));
   const port = probe.address().port;
@@ -69,6 +69,7 @@ try {
   const stored = JSON.parse(await readFile(join(project, ".flashlearn/review.json"), "utf8"));
   assert.deepEqual(stored[preview.id], state);
   assert.equal(state.reviewCount, 1);
+  assert.equal((await fetch(base + "/api/cards/next")).status, 404, "scheduled card must leave the due queue");
   await writeFile(join(ROOT, ".release/tested.json"), JSON.stringify(receipt));
   console.log("Installed tarball passed: executable, version, generation, queries, UI assets, and persisted review");
 } finally {
