@@ -57,7 +57,14 @@ export default function App() {
     return () => { cancelled = true; };
   }, [loadAttempt]);
 
-  useEffect(() => { let cancelled = false; void loadProjectName().then((name) => { if (!cancelled) setProjectName(name); }); return () => { cancelled = true; }; }, []);
+  // Only a live source has a server to ask. The static demo must issue no API
+  // request at all, and a fixture deck has no project behind it to name.
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    void loadProjectName().then((name) => { if (!cancelled) setProjectName(name); });
+    return () => { cancelled = true; };
+  }, [live]);
 
   useEffect(() => { scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: "smooth" }); }, [step, phase, typing, cards]);
 
