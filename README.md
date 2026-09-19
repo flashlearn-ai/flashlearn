@@ -74,9 +74,10 @@ Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`. Generated,
 
 ### Known Gaps
 
-A gap is something the project states and does not do. One qualifies.
+A gap is something the project states and does not do. Two qualify.
 
 1. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source must carry a Git `sha`. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional. That choice belongs to extraction and every contract owner.
+2. **Validation does not catch answers that waste review time by length or by carrying comment syntax.** `AGENTS.md` states `validateCards()` filters cards that would waste review time, and it does remove answers that are too short, restate the question, or lean on omitted context. Nothing removes an answer too long to read as an option, or one containing comment delimiters. Measured across two generated decks: FlashLearn's own 117 cards have a median answer of 387 characters, 54% over 300, and 23 answers carrying comment syntax such as `*/ function usable`; 312 cards generated from Kubernetes' `pkg/scheduler` have a median of 94, 7% over 300, and none. A file-level doc comment sitting immediately above the first declaration is also attributed to that declaration, so `contracts/index.d.ts` yields "What does `Card` do?" answered by the module's description rather than the type's. Both belong to extraction.
 
 ### Deliberate Omissions
 
