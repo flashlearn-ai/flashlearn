@@ -31,10 +31,6 @@ export class MockFrontendServices implements FrontendServices {
     return null;
   }
 
-  async project(): Promise<ProjectIdentity> {
-    return { name: null };
-  }
-
   async submitReview(cardId: string, _result: ReviewResult): Promise<ReviewState> {
     return {
       cardId,

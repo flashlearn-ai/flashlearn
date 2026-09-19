@@ -132,8 +132,11 @@ export function createFlashLearnServer(services: FrontendServices): Server {
       if (method === "GET" && url.pathname === "/api/project") {
         // Not a 404 when unnamed: the project exists, it just declares no name,
         // and a null says that precisely where a 404 would say something else.
-        const identity: ProjectIdentity = await services.project?.() ?? { name: null };
-        return json(response, 200, identity, body);
+        // Normalised rather than forwarded: the type annotation is erased at
+        // runtime, so an injected service could otherwise emit any shape.
+        const declared = (await services.project?.())?.name;
+        const name = typeof declared === "string" && declared.trim() ? declared.trim() : null;
+        return json(response, 200, { name } satisfies ProjectIdentity, body);
       }
       if (method === "GET" && url.pathname === "/api/cards/next") {
         const card = await services.nextCard();

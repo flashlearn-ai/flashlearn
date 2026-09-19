@@ -44,6 +44,21 @@ test("a project that declares no name is reported the same way", async () => {
   assert.deepEqual(body, { name: null });
 });
 
+/** The type annotation is erased at runtime, so an injected service could emit
+ *  any shape. The endpoint promises `ProjectIdentity` regardless. */
+test("a service returning something other than a name reports no name", async () => {
+  for (const returned of ["nope", 42, null, undefined, {}, { name: 7 }, { name: "   " }]) {
+    const { status, body } = await get("/api/project", { project: async () => returned as never });
+    assert.equal(status, 200, `${JSON.stringify(returned)} should still answer`);
+    assert.deepEqual(body, { name: null }, `${JSON.stringify(returned)} is not a name`);
+  }
+});
+
+test("a name is trimmed rather than forwarded with its surrounding space", async () => {
+  const { body } = await get("/api/project", { project: async () => ({ name: "  kubernetes  " }) });
+  assert.deepEqual(body, { name: "kubernetes" });
+});
+
 test("a name is read from the response only when it is a usable string", () => {
   assert.equal(projectName({ name: "flashlearn" }), "flashlearn");
   assert.equal(projectName({ name: "  kubernetes  " }), "kubernetes", "surrounding space is not part of a name");

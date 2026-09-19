@@ -76,7 +76,8 @@ Exit codes are 0 for success, 1 for operation failure, and 2 for invalid argumen
 ## Live study
 
 The local UI uses `GET /api/cards/next` to select each due card on the server;
-`GET /api/cards` supplies deck counts. There is no live topic filter. Recall the
+`GET /api/cards` supplies deck counts, and `GET /api/project` names the
+project the deck came from when it declares one. There is no live topic filter. Recall the
 answer, use **Reveal answer** (`GET /api/cards/:id`), then rate it incorrect,
 hard, correct, or easy. Sessions stop after 12 acknowledged reviews; incorrect
 cards may be due again immediately and repeats count toward the cap.
