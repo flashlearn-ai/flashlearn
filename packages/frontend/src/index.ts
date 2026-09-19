@@ -3,7 +3,7 @@ import { readFile, realpath } from "node:fs/promises";
 import { readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CardPreview, ReviewResult } from "../../../contracts/index.js";
+import type { CardPreview, ProjectIdentity, ReviewResult } from "../../../contracts/index.js";
 import type { FrontendServices, FrontendWorkstream } from "./workstream.js";
 
 export { MockFrontendServices } from "./workstream.js";
@@ -129,6 +129,15 @@ export function createFlashLearnServer(services: FrontendServices): Server {
       const method = request.method === "HEAD" ? "GET" : request.method;
 
       if (method === "GET" && url.pathname === "/api/cards") return json(response, 200, await services.listCards(), body);
+      if (method === "GET" && url.pathname === "/api/project") {
+        // Not a 404 when unnamed: the project exists, it just declares no name,
+        // and a null says that precisely where a 404 would say something else.
+        // Normalised rather than forwarded: the type annotation is erased at
+        // runtime, so an injected service could otherwise emit any shape.
+        const declared = (await services.project?.())?.name;
+        const name = typeof declared === "string" && declared.trim() ? declared.trim() : null;
+        return json(response, 200, { name } satisfies ProjectIdentity, body);
+      }
       if (method === "GET" && url.pathname === "/api/cards/next") {
         const card = await services.nextCard();
         if (!card) return json(response, 404, { error: "No card is due" }, body);

@@ -126,7 +126,7 @@ test("a missing asset is a 404, not the shell", async () => {
 
 test("HEAD answers as GET does, without a body", async () => {
   await serving(async (origin) => {
-    for (const path of ["/", "/api/cards"]) {
+    for (const path of ["/", "/api/cards", "/api/project"]) {
       const response = await fetch(`${origin}${path}`, { method: "HEAD" });
       assert.equal(response.status, 200, `HEAD ${path}`);
       assert.equal(await response.text(), "", `HEAD ${path} returned a body`);

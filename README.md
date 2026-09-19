@@ -62,11 +62,10 @@ Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ow
 
 Found by running FlashLearn against real repositories and against plain, non-Git folders. Each needs a decision from an owner other than the frontend, so each is recorded here rather than scaffolded in code: a stub that can only return nothing is dead weight, and pre-deciding another package's interface is not the frontend's call. Where data is missing the client shows nothing; it never guesses.
 
-1. **A deck has no identity.** Topic labels such as `Metrics` or `Framework` are generic, and `GET /api/cards` carries only repository-relative paths, so the client cannot say which project it is reviewing. The CLI owns the project root and is the only part that knows. Note that input may be a plain folder, so this cannot rely on a Git remote.
-2. **A live card carries no excerpt.** Live study reveals the answer and shows source attribution, but `Card.source` holds only `path` and `sha`. Only the sample multiple-choice demo ships excerpts and opens the source panel after an incorrect choice. Carrying excerpts in generated cards would change `GeneratedCard`.
-3. **Card-quality feedback has nowhere to go.** Marking a generated card wrong is the signal needed to tune extraction at scale. There is no endpoint and no store for it, so the control is not built: a button that discards its input while thanking the user is worse than its absence.
-4. **Mastery is not reported.** The client shows deck counts, not mastery; live study has no topic chooser. Nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
-5. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
+1. **A live card carries no excerpt.** Live study reveals the answer and shows source attribution, but `Card.source` holds only `path` and `sha`. Only the sample multiple-choice demo ships excerpts and opens the source panel after an incorrect choice. Carrying excerpts in generated cards would change `GeneratedCard`.
+2. **Card-quality feedback has nowhere to go.** Marking a generated card wrong is the signal needed to tune extraction at scale. There is no endpoint and no store for it, so the control is not built: a button that discards its input while thanking the user is worse than its absence.
+3. **Mastery is not reported.** The client shows deck counts, not mastery; live study has no topic chooser. Nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
+4. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
 
 David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
 
@@ -100,6 +99,7 @@ The locked HTTP endpoints are:
 GET /api/cards
 GET /api/cards/next
 GET /api/cards/:id
+GET /api/project
 POST /api/review
 ```
 
@@ -132,7 +132,7 @@ flowchart TD
     end
 
     subgraph FrontendRegion["🔴 Frontend / fake Teams · Sara · packages/frontend"]
-      Frontend["<b>⚙️ Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>🧩 Type:</b> CardPreview<br/>id · question<br/>source.path · source.sha<br/><br/><b>🧩 Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>🌐 HTTP:</b><br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>POST /api/review"]
+      Frontend["<b>⚙️ Methods:</b><br/>createServer(services) · renderPage()<br/>listCards() · nextCard() · getCard(id)<br/>submitReview(cardId, result)<br/><br/><b>🧩 Type:</b> CardPreview<br/>id · question<br/>source.path · source.sha<br/><br/><b>🧩 Type:</b> SubmitReviewRequest<br/>cardId · result<br/><br/><b>🧩 Type:</b> ProjectIdentity<br/>name<br/><br/><b>🌐 HTTP:</b><br/>GET /api/cards<br/>GET /api/cards/next<br/>GET /api/cards/:id<br/>GET /api/project<br/>POST /api/review"]
     end
   end
 

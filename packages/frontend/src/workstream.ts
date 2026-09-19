@@ -1,11 +1,14 @@
 import type { Server } from "node:http";
-import type { Card, ReviewResult, ReviewState } from "../../../contracts/index.js";
+import type { Card, ProjectIdentity, ReviewResult, ReviewState } from "../../../contracts/index.js";
 
 export interface FrontendServices {
   listCards(): Promise<Card[]>;
   nextCard(): Promise<Card | null>;
   getCard(id: string): Promise<Card | null>;
   submitReview(cardId: string, result: ReviewResult): Promise<ReviewState>;
+  /** Which project this deck came from. Optional: a composition that does not
+   *  know reports no name, which is also what a project declaring none reports. */
+  project?(): Promise<ProjectIdentity>;
 }
 
 /** HTTP server and UI creation owned by the frontend workstream. */

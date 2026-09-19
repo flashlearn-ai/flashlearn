@@ -232,6 +232,7 @@ img{ -webkit-user-drag:none; user-select:none }
 .steps{display:flex;flex-direction:column;gap:11px}
 .step{display:flex;gap:11px;align-items:flex-start;font-size:12.5px;color:var(--ink-2)}
 .step .n{width:22px;height:22px;flex-shrink:0;border-radius:7px 3px 7px 3px;background:var(--grad-dark);color:var(--mint);font-weight:700;font-size:11px;display:grid;place-items:center}
+.deck-title{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;word-break:break-word}
 .dstats{display:flex;gap:10px}
 .dstat{flex:1;border:1px solid var(--line);border-radius:12px 5px 12px 5px;padding:11px 8px;text-align:center;background:#fff}
 .dstat b{display:block;font-family:var(--serif);font-size:21px;color:var(--forest);line-height:1}
