@@ -40,6 +40,14 @@ export interface ReviewRepository {
 
 export type CardPreview = Omit<Card, "answer" | "tags" | "createdAt" | "updatedAt">;
 
+/** Which project a deck was generated from, for a client that would otherwise
+ *  show only generic topic names. `name` is null when the project declares none;
+ *  it is never inferred from a directory name or from prose, both of which are
+ *  wrong often enough to put a false title in the most prominent place. */
+export type ProjectIdentity = {
+  name: string | null;
+};
+
 export type SubmitReviewRequest = {
   cardId: string;
   result: ReviewResult;
