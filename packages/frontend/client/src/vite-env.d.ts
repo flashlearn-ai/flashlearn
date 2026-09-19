@@ -11,3 +11,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Replaced with a literal at build time by `client/vite.config.ts`. True for
+ *  the demo build and the dev server, false for a live build, and undefined
+ *  under Node, where tests pass a deck source explicitly. */
+declare const __ALLOW_FIXTURE__: boolean;

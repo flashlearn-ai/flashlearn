@@ -21,22 +21,11 @@ export const SAMPLE_DECK: Card[] = [
   card("ext-1", "Extraction", "Which file extensions does extraction scan?", ".go, .js, .jsx, .md, .ts and .tsx", "packages/extraction/src/extractor.ts"),
   card("ext-2", "Extraction", "What narrows an extraction run on a large repository?", "GenerateOptions, with subpath and maxFiles", "packages/extraction/src/workstream.ts"),
   card("sto-1", "Storage", "Which three files does a FlashLearn project keep?", "cards.json, review.json and settings.json", "packages/storage/src/paths.ts"),
-  card("lrn-1", "Learning", "What are the four accepted review results?", "easy, hard, correct and incorrect", "contracts/index.d.ts"),
+  card("lrn-1", "Learning", "Which type lists the accepted review results?", "ReviewResult, in the shared contract", "contracts/index.d.ts"),
   card("lrn-2", "Learning", "Which field carries the date a card next comes due?", "nextReview on ReviewState", "packages/learning/src/workstream.ts"),
   card("fe-1", "Frontend", "How many cards does one review session take?", "SESSION_LIMIT, currently 12", "packages/frontend/client/src/lib/deck.ts"),
   card("fe-2", "Frontend", "Which endpoint does the client read its deck from?", "GET /api/cards", "contracts/http.md"),
 ];
-
-/** Per-topic identity for the chooser: a glyph and an accent. Mastery is not
- *  reported by any endpoint, so no count is claimed here. */
-export type TopicIcon = "terminal" | "database" | "repeat" | "file";
-export const TOPIC_META: Record<string, { accent: string; icon: TopicIcon }> = {
-  cli: { accent: "#12965a", icon: "terminal" },
-  storage: { accent: "#2f8fbf", icon: "database" },
-  learning: { accent: "#6a45c0", icon: "repeat" },
-  extraction: { accent: "#0f9d8f", icon: "file" },
-  frontend: { accent: "#c4314b", icon: "file" },
-};
 
 /** The line each sample card was written from. Asserted to appear verbatim in
  *  the cited file, so an excerpt cannot drift into fiction. */

@@ -27,9 +27,16 @@ export default defineConfig(({ mode, command }) => {
     plugins: [react()],
     base: mode === "demo" ? "./" : "/",
     // Official artifacts must not inherit a local deck URL or fixture override.
-    define: command === "build" || mode === "demo" ? {
-      "import.meta.env.VITE_DECK_SOURCE": JSON.stringify(mode === "demo" ? "fixture" : "api"),
-    } : {},
+    // `__ALLOW_FIXTURE__` is folded at build time so the sample deck is not just
+    // unreachable in a live build but absent from it: Rollup drops the dynamic
+    // import, and no chunk of sample content reaches a project's client or the
+    // published tarball. Development still serves the fixture.
+    define: {
+      __ALLOW_FIXTURE__: JSON.stringify(mode === "demo" || command === "serve"),
+      ...(command === "build" || mode === "demo"
+        ? { "import.meta.env.VITE_DECK_SOURCE": JSON.stringify(mode === "demo" ? "fixture" : "api") }
+        : {}),
+    },
     build: { outDir: mode === "demo" ? "dist-demo" : "dist", emptyOutDir: true },
     server: {
       port: 5173,
