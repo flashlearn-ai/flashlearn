@@ -2,24 +2,25 @@
 
 **Owner:** Sara
 
-Live study follows server-selected due cards, with explicit answer reveal and persisted review acknowledgements. Demo study uses topic-balanced multiple choice. Multiple-choice options hide leading documented symbol names and sample distractors across the deck; original answers and attribution remain intact.
+Live study offers the schedule or a topic choice as ways in, and deals every card as multiple choice or recall for variety, with a start-screen control to force one kind, with persisted review acknowledgements. Demo study uses the same presentation with session-only ratings. Multiple-choice distractors are drawn from cards sharing the same question form, falling back to the wider deck when too few match, and hide leading documented symbol names; original answers and attribution remain intact.
 
 The live client records confirmed review submissions in browser `localStorage` and shows hardest-first topic insights for that browser profile, in the desktop details pane or **View topic insights** on mobile. Events snapshot the whole-deck client-resolved topic at review time. Pending, rejected, or malformed acknowledgements and demo/practice ratings are not recorded; clearing site data clears this history.
 
-Two halves in one package. `src/` is the Node server that answers the four locked HTTP endpoints and serves the built client. `client/` is the browser client, a Vite and React tree with its own tsconfig, because the server compiles to `NodeNext` and emits while the client resolves through a bundler and does not.
+Two halves in one package. `src/` is the Node server that answers the five locked HTTP endpoints and serves the built client. `client/` is the browser client, a Vite and React tree with its own tsconfig, because the server compiles to `NodeNext` and emits while the client resolves through a bundler and does not.
 
 `createFlashLearnServer(services)` is what the CLI composes; `FrontendServices` is an injected consumer port, not frontend-owned business logic. Do not access JSON storage or implement scheduling here. `MockFrontendServices` supplies empty API data for building against.
 
 The live build uses `client/dist`; `npm run demo --workspace @flashlearn/frontend` writes `client/dist-demo` and never overwrites the live build. Demo assets use relative paths and ratings are session-only, without API calls. Official builds override local `VITE_DECK_SOURCE` settings so release artifacts cannot accidentally load a private deck URL.
 
-Root `site:build` combines the demo with the landing page and tool docs from `site/`. Run `site:preview` for a subpath-aware preview and `site:test` for browser checks. See `docs/release-readiness.md` at the repo root for release and Pages setup.
+Root `site:build` assembles the landing page and tool docs from `site/`; pass `-- --demo` to build this package's demo bundle and publish it under `/demo/`, which a default build omits. Run `site:preview` for a subpath-aware preview and `site:test` for browser checks; the demo browser check skips when the demo was not built. See `docs/release-readiness.md` at the repo root for release and Pages setup.
 
 ## Study behavior
 
-- **Live:** `GET /api/cards` supplies deck counts and topic classification for insights. Each review starts with `GET /api/cards/next`, then `GET /api/cards/:id` on **Reveal answer**. Ratings support all four locked results. The browser displays the server's `nextReview`, never calculates an interval, and requests the next card only after a confirmed save and an explicit **Next due card** click.
+- **Live:** `GET /api/cards` supplies the deck, its topic classification, and the answers used for choices and reveals. **Study what’s due** takes each card from `GET /api/cards/next`; **Choose topics** deals a session from the loaded deck, which is an early review rather than a due queue. `GET /api/cards/:id` fetches only a card that became due after the deck loaded. Ratings support all four locked results. The browser displays the server's `nextReview`, never calculates an interval, and requests the next card only after a confirmed save and an explicit **Next due card** click.
 - **Persistence:** reload starts a fresh transcript and queries the server's saved schedule. Future cards are not rebuilt into a client-side session. A `404` from the next-card endpoint means no cards are due, distinct from an empty project or a failed request. API responses and client reads disable caching.
-- **Bounded live sessions:** at most 12 acknowledged reviews. Incorrect cards may be selected again immediately; repeats count toward the cap. The existing endpoint cannot filter topics or exclude previously seen cards, so live study follows server order without a topic chooser.
-- **Failures:** loading and reveal failures have retry controls. A pending review says **Saving review…**, never **Scheduled**. A failed or malformed acknowledgement leaves the current rating retryable and blocks advancement and new sessions. A missing due date says **Review saved · no due date returned**. A lost response can mean a save succeeded; the current contract has no idempotency key, so retrying may record the rating twice. This uncertainty is shown to the user.
+- **Bounded live sessions:** at most 12 acknowledged reviews. Incorrect cards may be selected again immediately; repeats count toward the cap. The next-card endpoint cannot filter topics or exclude previously seen cards, so the due route follows server order; topic sessions are dealt client-side and never presented as due.
+- **Why a choice was wrong:** a missed multiple-choice card names the card its distractor actually answers (“You picked X — that answers ‘Y’”), because the learning value is in seeing what was confused with what. Correctness is already settled by the click, so only difficulty is asked; every `ReviewResult` except `incorrect` counts as a success in the scheduler, and none of them could honestly follow a wrong answer.
+- **Failures:** loading failures have retry controls. A pending review says **Saving review…**, never **Scheduled**. A failed or malformed acknowledgement leaves the current rating retryable and blocks advancement and new sessions. A missing due date says **Review saved · no due date returned**. A lost response can mean a save succeeded; the current contract has no idempotency key, so retrying may record the rating twice. This uncertainty is shown to the user.
 - **Demo and fixture/URL practice:** ratings are session-only and never post reviews. Demo sessions remain capped at 12, balance selected topics, rotate the starting topic when topics outnumber slots, and advance each topic by the number of cards actually dealt. Topic/card cursors reset on reload. Demo builds make no API requests.
 - **Boundary validation:** preview/full-card input requires nonempty IDs, questions, paths and string SHAs; full cards require answers and string timestamps, with optional string-array tags. Malformed full-deck entries are filtered, and an entirely unusable deck fails visibly. Reveal and preview failures are surfaced rather than substituted. `sha: "unknown"` remains compatible with non-Git extraction and is omitted from attribution display.
 
@@ -27,11 +28,11 @@ No HTTP or shared TypeScript contract changes are required.
 
 | Method | Behaviour |
 | --- | --- |
-| `createServer(services)` | Handle the four locked endpoints, then serve `client/dist` for any other GET, falling back to the client shell so the browser owns routing. |
+| `createServer(services)` | Handle the five locked endpoints, then serve `client/dist` for any other GET, falling back to the client shell so the browser owns routing. |
 | `renderPage()` | Return the built client shell, or build instructions when `client/dist` is absent. |
 | `listCards()` | Supply cards for `GET /api/cards`. |
 | `nextCard()` | Supply a due card; the handler must hide its answer. |
-| `getCard(id)` | Supply the complete card for answer reveal. |
+| `getCard(id)` | Supply a complete card the loaded deck does not have. |
 | `submitReview(cardId, result)` | Submit a locked review result and return updated `ReviewState`. |
 
 ## Commands

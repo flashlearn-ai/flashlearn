@@ -53,10 +53,24 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Owner:** Sara
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
-   - **Current:** The Node server serves the locked endpoints and built Teams client. Live study reveals and rates server-selected due cards, capped at 12 acknowledged reviews with persisted schedules; the sample demo uses topic-balanced, session-only multiple choice. Source excerpts are available in the sample deck only
+   - **Current:** The Node server serves the locked endpoints and built Teams client. Live study reveals and rates server-selected due cards, capped at 12 acknowledged reviews with persisted schedules; both live routes deal every card as multiple choice or recall, mixed by default; the sample demo differs only in that its ratings are session-only. Source excerpts are available in the sample deck only
    - **Next:** Nothing outstanding. Deliberate omissions are listed below and need their owners' agreement before any surface claims them
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
+
+### Supported Inputs
+
+One project root per running server, verified against each of these:
+
+| Input | Works | Attribution |
+| --- | --- | --- |
+| A Git repository | Yes | Repository-relative `path` and the commit `sha` |
+| A subdirectory of a repository | Yes, via `generate --subpath <dir>` | Paths stay repository-relative, so the commit still resolves |
+| A plain folder of documents | Yes | `path` only; `sha` is `"unknown"` and the client shows no commit |
+| Several files in that folder | Yes — every supported file is scanned | Each card cites the file it came from |
+| Several projects at once | **No** | Each project keeps its own `.flashlearn/`; run a second `flashlearn start` |
+
+Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`. Generated, dependency, Git, and `.flashlearn/` directories are skipped, along with machine-generated files, Go test files, and changelogs. A large repository needs scoping before it produces a deck worth studying: `generate --subpath` and `--max-files` narrow the run without moving the project root.
 
 ### Known Gaps
 
@@ -68,9 +82,10 @@ A gap is something the project states and does not do. One qualifies.
 
 These are absences with a reason, not work owed. Nothing in the product or its documentation offers them.
 
-- **A live card carries no excerpt.** `Card.source` holds `path` and `sha`; only the bundled sample deck ships excerpts, and only its multiple-choice demo opens a source panel. Carrying excerpts in generated cards would change `GeneratedCard` and copy source text into `cards.json`, where it would go stale against the file it quotes.
+- **A live card carries no excerpt.** `Card.source` holds `path` and `sha`; only the bundled sample deck ships excerpts, so only a sample card can expand a source panel. Carrying excerpts in generated cards would change `GeneratedCard` and copy source text into `cards.json`, where it would go stale against the file it quotes.
+- **One project is studied at a time.** `flashlearn start` serves a single project root: `GET /api/project` returns one `ProjectIdentity`, and review state lives in that project's own `.flashlearn/`. A repository, a folder, or a handful of loose documents all work as that root, and a non-Git folder simply cites no commit. Studying a second project means a second `start` pointed elsewhere. Merging decks would collide topic names, because topics come from directory names and `util`, `testing` and `api` recur across repositories; it would also strip the repository from repository-relative source paths, making attribution unreadable, and require merging schedules that are stored separately by design.
 - **Card-quality feedback is not collected.** A control that discards its input while thanking the user is worse than its absence, so none is built. Collecting it needs somewhere to put it.
-- **Mastery is not reported.** The client shows deck counts. `ReviewState` holds `reviewCount` and `correctCount` per card, but nothing exposes them in aggregate, and what "mastered" means is the learning package's call to make before any surface claims it.
+- **Mastery is not reported.** The client shows deck counts and, from this browser’s own review history, per-topic recall rates. `ReviewState` holds `reviewCount` and `correctCount` per card, but nothing exposes them in aggregate, and what "mastered" means is the learning package's call to make before any surface claims it.
 
 ## Workstream Interfaces
 
@@ -186,7 +201,7 @@ Contract ownership is:
 
 ## Development
 
-For packaging, publishing, and website deployment, see the [npm and GitHub Pages release runbook](docs/release-readiness.md). `npm run release:check` builds and tests the installable CLI tarball. `npm run site:build` builds the landing page, docs, and sample demo; `npm run site:preview` serves them locally at `http://127.0.0.1:4182/flashlearn/`. Publishing and deployment require the owner setup described in the runbook.
+For packaging, publishing, and website deployment, see the [npm and GitHub Pages release runbook](docs/release-readiness.md). `npm run release:check` builds and tests the installable CLI tarball. `npm run site:build` builds the landing page and docs; add `-- --demo` to include the sample demo, which is otherwise not published. `npm run site:preview` serves them locally at `http://127.0.0.1:4182/flashlearn/`. Publishing and deployment require the owner setup described in the runbook.
 
 ```bash
 npm install
@@ -219,11 +234,11 @@ Scope extraction with `flashlearn generate --project /path/to/repo --subpath src
 
 `flashlearn start` serves the browser client that `packages/frontend` builds into `client/dist`. The development runner ensures that build is ready; the npm release includes it. To work on the client with hot reload instead, run `npm run dev --workspace @flashlearn/frontend` on port 5173; it proxies `/api` to a `flashlearn start` server on port 4173, overridable with `FLASHLEARN_API`.
 
-Live study uses `GET /api/cards` for counts and `GET /api/cards/next` for server-selected due cards, with no topic filter. **Reveal answer** fetches `GET /api/cards/:id`; rate recall as incorrect, hard, correct, or easy. Each session allows up to 12 acknowledged reviews, including immediately due incorrect-card repeats. Saved schedules survive reloads; the transcript resets and future cards stay out of the due queue. A next-card `404` means no cards are due.
+Live study offers two ways in: **Study what’s due** takes each card from `GET /api/cards/next`, and **Choose topics** deals a session from the loaded deck, which is an early review rather than the due queue because that endpoint has no topic filter. Every card is dealt as multiple choice or as recall, mixed by default, with a **Mixed / Multiple choice / Recall only** control before a session starts. Answers come from the loaded deck; `GET /api/cards/:id` fetches a card that became due after that load. Rate each card incorrect, hard, correct, or easy. Each session allows up to 12 acknowledged reviews, including immediately due incorrect-card repeats. Saved schedules survive reloads; the transcript resets and future cards stay out of the due queue. A next-card `404` means no cards are due.
 
 The client shows **Saving review…** until `POST /api/review` is confirmed, then displays the server's due date and offers **Next due card**. Failed or malformed acknowledgements block advancement and new sessions while allowing retry of the same rating. A lost response may mean the save succeeded; the contract has no idempotency key, so retrying may record the rating twice.
 
-The sample demo uses multiple choice with session-only ratings and no API calls. Sessions balance selected topics across at most 12 cards, rotate the starting topic when topics outnumber slots, and advance each topic by cards actually dealt. Ratings and cursors reset on reload. The live browser suite above requires a live build and Playwright Chromium (installation instructions are in the release runbook); it uses package-local injected services on desktop/mobile. `npm run site:test` checks the separately built Pages demo.
+The sample demo uses the same mixed choice/recall presentation, with session-only ratings and no API calls. Sessions balance selected topics across at most 12 cards, rotate the starting topic when topics outnumber slots, and advance each topic by cards actually dealt. Ratings and cursors reset on reload. The live browser suite above requires a live build and Playwright Chromium (installation instructions are in the release runbook); it uses package-local injected services on desktop/mobile. `npm run site:test` checks the built Pages artifacts; its demo check skips unless the site was built with `--demo`.
 
 The CLI returns exit code `0` for success, `1` for execution failures, and `2` for invalid commands or arguments. See `packages/cli/README.md` for its dependency-injection and integration-test structure.
 

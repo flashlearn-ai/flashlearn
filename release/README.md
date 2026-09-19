@@ -76,10 +76,14 @@ Exit codes are 0 for success, 1 for operation failure, and 2 for invalid argumen
 ## Live study
 
 The local UI uses `GET /api/cards/next` to select each due card on the server;
-`GET /api/cards` supplies deck counts, and `GET /api/project` names the
-project the deck came from when it declares one. There is no live topic filter. Recall the
-answer, use **Reveal answer** (`GET /api/cards/:id`), then rate it incorrect,
-hard, correct, or easy. Sessions stop after 12 acknowledged reviews; incorrect
+`GET /api/cards` supplies the deck, and `GET /api/project` names the
+project the deck came from when it declares one. Study what is due, or choose
+topics yourself; a topic session is an early review rather than the due queue,
+because the next-card endpoint has no topic filter. Cards arrive as multiple
+choice or as recall, mixed by default, with **Mixed**, **Multiple choice** and
+**Recall only** offered before a session starts. Answers come from the loaded
+deck; `GET /api/cards/:id` fetches a card that became due after that load. Rate
+each card incorrect, hard, correct, or easy. Sessions stop after 12 acknowledged reviews; incorrect
 cards may be due again immediately and repeats count toward the cap.
 
 Ratings are saved through `POST /api/review`. The UI shows **Saving review…**
