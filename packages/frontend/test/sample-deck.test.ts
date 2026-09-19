@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { EXCERPTS, SAMPLE_DECK } from "../client/src/data.js";
+import { EXCERPTS, SAMPLE_DECK } from "../client/src/sample.js";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 

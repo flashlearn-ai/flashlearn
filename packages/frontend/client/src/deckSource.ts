@@ -1,5 +1,5 @@
 import type { Card } from "./lib/deck";
-import { SAMPLE_DECK } from "./data";
+import { registerExcerpts } from "./excerpts";
 import type { CardPreview } from "../../../../contracts/index";
 
 /**
@@ -68,7 +68,21 @@ export async function fetchDeck(url: string): Promise<Card[]> {
 export function deckSource(setting: string | undefined = import.meta.env?.VITE_DECK_SOURCE): DeckSource {
   const configured = setting?.trim();
 
-  if (!configured || configured === "fixture") return async () => SAMPLE_DECK;
-  if (configured === "api") return async () => fetchDeck(API_DECK);
+  // Imported on demand so the sample deck is a separate chunk the live build
+  // never loads, rather than inert text inside the bundle every project ships.
+  // `__ALLOW_FIXTURE__` is replaced with a literal at build time, so a live
+  // build folds this to `false` and Rollup removes the import: the sample deck
+  // is absent from that bundle rather than merely unreachable in it. The
+  // `typeof` guard keeps the branch alive under Node, where tests select
+  // "fixture" explicitly and nothing defines the flag.
+  const fixtureAvailable = typeof __ALLOW_FIXTURE__ === "undefined" || __ALLOW_FIXTURE__;
+  if (fixtureAvailable && (!configured || configured === "fixture")) return async () => {
+    const { SAMPLE_DECK, EXCERPTS } = await import("./sample");
+    registerExcerpts(EXCERPTS);
+    return SAMPLE_DECK;
+  };
+  // A live build has no fixture to fall back on, so an unset or "fixture"
+  // setting resolves to the API rather than to nothing.
+  if (!configured || configured === "api" || configured === "fixture") return async () => fetchDeck(API_DECK);
   return async () => fetchDeck(configured);
 }

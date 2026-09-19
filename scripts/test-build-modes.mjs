@@ -27,4 +27,15 @@ const demo = await digest(demoRoot);
 run(npmCommand, ["run", "build", "--workspace", "@flashlearn/frontend"]);
 assert.equal(await digest(demoRoot), demo, "live overwrote demo output");
 assert.equal(await digest(liveRoot), live, "live release inherited fixture override");
+
+/* The sample deck is a fixture. A project running `flashlearn start` serves the
+ * live bundle, which must not carry cards that project did not generate — even
+ * unreachable ones. It is imported on demand, so it belongs in its own chunk. */
+const assets = await readdir(join(liveRoot, "assets"));
+for (const name of assets) {
+  const asset = await readFile(join(liveRoot, "assets", name), "utf8");
+  for (const sample of ["packages/cli, the composition root", "SESSION_LIMIT, currently 12"]) {
+    assert(!asset.includes(sample), `live build asset ${name} contains sample deck text: ${sample}`);
+  }
+}
 console.log("Live and demo build isolation passed in both orders");

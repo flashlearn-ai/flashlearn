@@ -1,6 +1,13 @@
 import { test, expect } from "@playwright/test";
+import { existsSync } from "node:fs";
 
 const base = "http://127.0.0.1:4182/flashlearn/";
+
+/* The sample demo is opt-in (`site:build -- --demo`), so it is absent from the
+ * default build this suite usually runs against. Skipping keeps the check
+ * meaningful when the demo ships instead of failing the site suite when it
+ * deliberately does not. */
+const demoBuilt = existsSync(new URL("../../../../.release/site/demo/index.html", import.meta.url));
 
 test("hero and docs work at a repository subpath on desktop and mobile", async ({ page }) => {
   for (const width of [1440, 390]) {
@@ -20,6 +27,7 @@ test("hero and docs work at a repository subpath on desktop and mobile", async (
 });
 
 test("static demo completes a session without any API or external requests", async ({ page }) => {
+  test.skip(!demoBuilt, "site was built without --demo, so there is no demo to check");
   await page.setViewportSize({ width: 390, height: 844 });
   const badRequests: string[] = [];
   const errors: string[] = [];
@@ -33,11 +41,21 @@ test("static demo completes a session without any API or external requests", asy
   await page.getByRole("button", { name: /Get started/ }).click();
   await page.getByRole("button", { name: "Select all", exact: true }).click();
   await page.getByRole("button", { name: /Start ·/ }).click();
-  // Public deck currently has 9 cards. Choose any answer and exercise either rating path.
+  // Public deck currently has 9 cards, dealt as a mix of multiple choice and
+  // recall. Drive whichever the session dealt and exercise every rating path.
   for (let i = 0; i < 9; i++) {
-    await page.locator(".qchoice:not([disabled])").first().click();
-    const rating = page.getByRole("button", { name: /^(Easy|Continue)$/ }).first();
-    await rating.click();
+    const choice = page.locator(".qchoice:not([disabled])").first();
+    const reveal = page.getByRole("button", { name: "Reveal answer", exact: true }).first();
+    // The transcript pauses on a typing indicator before the next card mounts.
+    // Deciding which kind it is before then races that delay and picks wrong.
+    await expect(choice.or(reveal)).toBeVisible();
+    if (await choice.count()) {
+      await choice.click();
+      await page.getByRole("button", { name: /^(Easy|Continue)$/ }).first().click();
+    } else {
+      await reveal.click();
+      await page.getByRole("button", { name: /^(Incorrect|Hard|Correct|Easy)$/ }).first().click();
+    }
     await expect(page.getByText("Demo rating · session only", { exact: true })).toHaveCount(i + 1);
   }
   await expect(page.getByRole("button", { name: /Study more/ })).toBeVisible();

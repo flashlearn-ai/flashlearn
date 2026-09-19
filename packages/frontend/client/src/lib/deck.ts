@@ -192,28 +192,68 @@ export type SessionCard = {
    *  the card component needs no access to the deck: it was taking the whole
    *  deck as a prop purely to run this lookup. */
   confusable: Map<string, Card>;
+  /** How this card is asked. Recall reveals the answer and asks the learner to
+   *  rate it; choice grades itself from the option picked. */
+  mode: "choice" | "reveal";
   answer: Choice | null;
   grade: ReviewResult | null;
   outcome: ReviewOutcome | null;
 };
 
+/** What a session asks for. `mixed` alternates for variety regardless of how
+ *  well a card is known; the other two force one kind for the whole session. */
+export type Presentation = "mixed" | "choice" | "reveal";
+
 /** Pairs each session card with its choices and the cards they were taken from. */
-export function dealSession(session: StudyCard[], pool: Card[]): SessionCard[] {
-  return session.map((card) => {
-    const choices = buildChoices(card, pool);
-    const confusable = new Map<string, Card>();
-    for (const choice of choices) {
-      const from = confusedWith(choice, card, pool);
-      if (from) confusable.set(choice.text, from);
-    }
-    return { card, choices, confusable, answer: null, grade: null, outcome: null };
-  });
+/** Deals one card: its choices, what each wrong option answers, and whether it
+ *  is asked as a question or a recall. `position` drives the `mixed` rotation,
+ *  so a session dealt up front and one appended a card at a time alternate the
+ *  same way instead of each having its own idea of "every other card". */
+export function dealCard(card: StudyCard, pool: Card[], presentation: Presentation, position: number): SessionCard {
+  const wanted = presentation === "mixed" ? (position % 2 === 0 ? "choice" : "reveal") : presentation;
+  // A recall card shows its answer and is scored by the rating, so the options
+  // and the confusion map would be built and thrown away. Each costs a scan of
+  // the whole deck per choice, which on a large deck is the bulk of dealing.
+  // The correct answer is still carried, because a session records it.
+  if (wanted === "reveal") {
+    return { card, choices: [{ text: card.answer, correct: true }], confusable: new Map(), mode: "reveal", answer: null, grade: null, outcome: null };
+  }
+  const choices = buildChoices(card, pool);
+  const confusable = new Map<string, Card>();
+  for (const choice of choices) {
+    const from = confusedWith(choice, card, pool);
+    if (from) confusable.set(choice.text, from);
+  }
+  // One option answers itself, so such a card is always recall.
+  return { card, choices, confusable, mode: choices.length > 1 ? "choice" : "reveal", answer: null, grade: null, outcome: null };
+}
+
+/** Pairs each session card with its choices and the cards they were taken from. */
+export function dealSession(session: StudyCard[], pool: Card[], presentation: Presentation = "mixed"): SessionCard[] {
+  return session.map((card, index) => dealCard(card, pool, presentation, index));
 }
 
 /** Correct answers within a run. Lives next to `runsOf`, which produces the
  *  `Run`, because the handoff message and the details pane both report it. */
+/** Whether a dealt card was got right. A choice card is judged by the option
+ *  picked. A recall card is never offered options, so its own rating is the
+ *  only evidence there is: anything but `incorrect` means it was recalled.
+ *  Every view scores through this, so a session, a run and the details pane
+ *  cannot disagree about the same card. */
+export function wasCorrect(entry: SessionCard): boolean {
+  return entry.mode === "choice" ? Boolean(entry.answer?.correct) : entry.grade !== null && entry.grade !== "incorrect";
+}
+
+/** Whether the learner is finished with a dealt card. */
+export function wasAnswered(entry: SessionCard): boolean {
+  return entry.mode === "choice" ? entry.answer !== null : entry.grade !== null;
+}
+
 export function scoreOf(run: Run, cards: SessionCard[]): number {
-  return run.cards.filter((_, i) => cards[run.start + i]?.answer?.correct).length;
+  return run.cards.filter((_, i) => {
+    const entry = cards[run.start + i];
+    return entry ? wasCorrect(entry) : false;
+  }).length;
 }
 
 /** The card a distractor was borrowed from, so a miss can name the confusion
@@ -226,6 +266,16 @@ export function confusedWith(chosen: Choice, card: Card, pool: Card[]): Card | n
 
 const LEADING_SUBJECT = /^([A-Za-z_][A-Za-z0-9_]*)\s+([a-z][a-z0-9]*)\b/;
 const QUESTION_SUBJECT = /`([A-Za-z_][A-Za-z0-9_]*)(?:\(\))?`/;
+const FORM_SUBJECT = /`[^`]+`|"[^"]+"|'[^']+'/g;
+
+/** A question with its subject replaced, so `toYaml()` and `dueLabel()` share a
+ *  form while "…cover?" prose does not. Distractors are drawn within a form:
+ *  a deck spanning function docs, prose and website copy otherwise offers the
+ *  marketing tagline as an answer to what a function does. This deliberately
+ *  does not group by topic, so options stay varied across the deck. */
+function questionForm(question: string): string {
+  return question.trim().toLowerCase().replace(FORM_SUBJECT, "*").replace(/\s+/g, " ");
+}
 
 /** Hide documented symbol names in choices without stripping ordinary prose. */
 export function anonymizeAnswer(answer: string, subjects?: ReadonlySet<string>): string {
@@ -248,29 +298,33 @@ function documentedSubjects(pool: Card[]): Set<string> {
   return subjects;
 }
 
+/** Fisher-Yates, in place. Shared by candidate selection and choice ordering. */
+function shuffle<T>(items: T[], rng: () => number): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [items[i], items[j]] = [items[j]!, items[i]!];
+  }
+  return items;
+}
+
 export function buildChoices(card: Card, pool: Card[], count = 3, rng: () => number = Math.random): Choice[] {
   const subjects = documentedSubjects(pool);
   const correct = anonymizeAnswer(card.answer, subjects);
+  const form = questionForm(card.question);
   const seen = new Set<string>([correct]);
-  const candidates: string[] = [];
+  // Same-form answers first. Hand-authored decks phrase every question
+  // differently, so the wider pool still backs a question that would otherwise
+  // have too few options to ask anything.
+  const matching: string[] = [];
+  const rest: string[] = [];
   for (const other of pool) {
     if (other.id === card.id) continue;
     const text = anonymizeAnswer(other.answer, subjects);
     if (seen.has(text)) continue;
     seen.add(text);
-    candidates.push(text);
+    (questionForm(other.question) === form ? matching : rest).push(text);
   }
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j]!, candidates[i]!];
-  }
-  const distractors = candidates.slice(0, Math.max(0, count - 1));
+  const distractors = [...shuffle(matching, rng), ...shuffle(rest, rng)].slice(0, Math.max(0, count - 1));
   const choices: Choice[] = [{ text: correct, correct: true }, ...distractors.map((text) => ({ text, correct: false }))];
-  for (let i = choices.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    const a = choices[i]!;
-    choices[i] = choices[j]!;
-    choices[j] = a;
-  }
-  return choices;
+  return shuffle(choices, rng);
 }
