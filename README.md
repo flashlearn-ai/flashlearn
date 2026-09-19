@@ -22,7 +22,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** `init`, `generate`, `start`, `project show/status`, `question list/get`, per-invocation `--project`, structured output, scoped extraction, local server startup, orchestration, and integration tests
    - **Dependencies:** May depend on all packages
    - **Current:** Cwd-based project selection, text/JSON/YAML queries, auto-initializing generation, empty-deck startup confirmation, and `--subpath`/`--max-files` extraction scope
-   - **Next:** Coordinate project identity for the browser client (gap 1)
+   - **Next:** Integrate completed owner packages as they merge
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
    - **Status:** ✅ Done
@@ -30,7 +30,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** Repository scanning, Markdown headings, JSDoc, Go doc comments, undocumented export signatures, answer cleanup, and source attribution (`path`, `sha`)
    - **Dependencies:** Shared contracts only
    - **Current:** Deterministic extraction and optional endpoint-backed generation support Go, JavaScript, JSX, Markdown, TypeScript, and TSX, with generated-source skipping, scoped scans, and card-quality filtering
-   - **Next:** Decide what `sha` should hold when the input is not a Git repository (gap 5)
+   - **Next:** Decide what `sha` should hold when the input is not a Git repository (the only Known Gap)
 
 3. 🟠 **Storage / repositories** (`packages/storage`)
    - **Status:** ✅ Done
@@ -38,7 +38,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** Card persistence, review-state persistence, schema validation, atomic JSON writes, path helpers, and repository abstractions
    - **Dependencies:** Shared contracts only
    - **Current:** Production `StorageService`, card repositories, and review repositories implement the locked interfaces under `.flashlearn/`
-   - **Next:** Add migrations when persisted schemas evolve, broaden malformed-data and isolation tests, and decide whether card-quality feedback gets a store (gap 3)
+   - **Next:** Add migrations when persisted schemas evolve, broaden malformed-data and isolation tests
 
 4. 🟣 **Learning engine** (`packages/learning`)
    - **Status:** ✅ Done
@@ -46,7 +46,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** Review scheduling, spaced-repetition logic, due-card selection, and easy/hard/correct/incorrect scoring
    - **Dependencies:** Shared contracts only
    - **Current:** Deterministic review scheduling, scoring, and overdue-first due-card selection are implemented and tested
-   - **Next:** Decide what "mastered" means before any surface reports it (gap 4). The review controls are connected: the client submits grades and renders the `nextReview` this package returns, rather than computing an interval of its own
+   - **Next:** The review controls are connected: the client submits grades and renders the `nextReview` this package returns, rather than computing an interval of its own
 
 5. 🔴 **Frontend / fake Teams** (`packages/frontend`)
    - **Status:** ✅ Done
@@ -54,22 +54,23 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** Card display, answer reveal, review actions, HTTP handlers, and the fake Teams browser experience
    - **Dependencies:** Shared contracts only
    - **Current:** The Node server serves the locked endpoints and built Teams client. Live study reveals and rates server-selected due cards, capped at 12 acknowledged reviews with persisted schedules; the sample demo uses topic-balanced, session-only multiple choice. Source excerpts are available in the sample deck only
-   - **Next:** Coordinate gaps 1 to 4 with their owners
+   - **Next:** Nothing outstanding. Deliberate omissions are listed below and need their owners' agreement before any surface claims them
 
 Shared infrastructure is ✅ **Done**: the data and HTTP contracts, workspace ownership rules, package-scope enforcement, CI, and local hooks are in place.
 
 ### Known Gaps
 
-Found by running FlashLearn against real repositories and against plain, non-Git folders. Each needs a decision from an owner other than the frontend, so each is recorded here rather than scaffolded in code: a stub that can only return nothing is dead weight, and pre-deciding another package's interface is not the frontend's call. Where data is missing the client shows nothing; it never guesses.
+A gap is something the project states and does not do. One qualifies.
 
-1. **A live card carries no excerpt.** Live study reveals the answer and shows source attribution, but `Card.source` holds only `path` and `sha`. Only the sample multiple-choice demo ships excerpts and opens the source panel after an incorrect choice. Carrying excerpts in generated cards would change `GeneratedCard`.
-2. **Card-quality feedback has nowhere to go.** Marking a generated card wrong is the signal needed to tune extraction at scale. There is no endpoint and no store for it, so the control is not built: a button that discards its input while thanking the user is worse than its absence.
-3. **Mastery is not reported.** The client shows deck counts, not mastery; live study has no topic chooser. Nothing exposes review state in aggregate. `ReviewState` holds `reviewCount` and `correctCount` per card, but `POST /api/review` returns only the card just graded, and what "mastered" means is the learning package's call.
-4. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source carries a Git SHA. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional.
+1. **A non-Git folder yields `sha: "unknown"`.** Extraction still produces usable cards, and the client omits the commit rather than printing a placeholder, but `AGENTS.md` states every card source must carry a Git `sha`. Either extraction hashes file contents when there is no repository, or the contract admits `sha` is optional. That choice belongs to extraction and every contract owner.
 
-David's directory responsibility is selecting the input directory and passing it into the pipeline. Manasa owns traversing and interpreting that repository inside the extraction package. David starts the local server through orchestration; Sara owns the server's HTTP handlers and UI behavior inside the frontend package.
+### Deliberate Omissions
 
-Each contributor should change only their assigned `packages/<name>/` directory. Package tests and implementation stay together. Changes to `contracts/`, root configuration, or integration wiring require review from all affected owners.
+These are absences with a reason, not work owed. Nothing in the product or its documentation offers them.
+
+- **A live card carries no excerpt.** `Card.source` holds `path` and `sha`; only the bundled sample deck ships excerpts, and only its multiple-choice demo opens a source panel. Carrying excerpts in generated cards would change `GeneratedCard` and copy source text into `cards.json`, where it would go stale against the file it quotes.
+- **Card-quality feedback is not collected.** A control that discards its input while thanking the user is worse than its absence, so none is built. Collecting it needs somewhere to put it.
+- **Mastery is not reported.** The client shows deck counts. `ReviewState` holds `reviewCount` and `correctCount` per card, but nothing exposes them in aggregate, and what "mastered" means is the learning package's call to make before any surface claims it.
 
 ## Workstream Interfaces
 
