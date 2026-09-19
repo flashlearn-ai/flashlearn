@@ -272,3 +272,19 @@ test("a reveal-only card has a correct choice to record on completion", () => {
   assert.equal(entry.choices.length, 1, "a lone card cannot be a quiz");
   assert.equal(entry.choices.find((c) => c.correct)?.text, entry.card.answer);
 });
+
+/* A recall card is never chosen from options, so grading one used to record the
+ * correct choice as though the learner had picked it. Every score then counted
+ * it right, whatever the learner said. The rating is the only evidence there is. */
+test("a recall card is scored by its rating, not by an answer nobody chose", () => {
+  const deck = classify(DECK);
+  const dealt = dealSession(buildSet(deck, ["cli"]), DECK, "reveal");
+  const [run] = runsOf(dealt.map((d) => d.card));
+  assert(run);
+  assert(dealt.every((entry) => entry.mode === "reveal"), "this session must be dealt as recall");
+
+  assert.equal(scoreOf(run, dealt), 0, "nothing rated yet");
+  dealt[0]!.grade = "incorrect";
+  dealt[1]!.grade = "easy";
+  assert.equal(scoreOf(run, dealt), 1, "only the recalled card counts");
+});
