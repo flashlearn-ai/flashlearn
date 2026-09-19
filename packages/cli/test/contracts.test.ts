@@ -61,6 +61,26 @@ test("learning boundary receives cards and review states and saves its result", 
   assert.equal(dependencies.createReviewRepository(resolve("/repo")).saved[0]?.cardId, card.id);
 });
 
+/** The composed service reports what the project declares, for the root the
+ *  command was given. Asserted because removing the dependency entirely left
+ *  every other test passing: nothing else exercises this path. */
+test("frontend boundary reports the project name for the started root", async () => {
+  const dependencies = new RecordingDependencies();
+  dependencies.projectName = "kubernetes";
+  await new CliService(dependencies).start("/repo");
+
+  assert.deepEqual(await dependencies.frontendServices?.project(), { name: "kubernetes" });
+  assert.deepEqual(dependencies.projectNameReads, ["/repo"]);
+});
+
+test("a project declaring no name reports none rather than a placeholder", async () => {
+  const dependencies = new RecordingDependencies();
+  dependencies.projectName = null;
+  await new CliService(dependencies).start("/repo");
+
+  assert.deepEqual(await dependencies.frontendServices?.project(), { name: null });
+});
+
 test("frontend boundary receives all services and server options", async () => {
   const dependencies = new RecordingDependencies();
   const service = new CliService(dependencies);
@@ -71,5 +91,6 @@ test("frontend boundary receives all services and server options", async () => {
   assert.equal(typeof dependencies.frontendServices.nextCard, "function");
   assert.equal(typeof dependencies.frontendServices.getCard, "function");
   assert.equal(typeof dependencies.frontendServices.submitReview, "function");
+  assert.equal(typeof dependencies.frontendServices.project, "function");
   assert.deepEqual(dependencies.listenCalls, [{ server: dependencies.server, host: "localhost", port: 8080 }]);
 });
