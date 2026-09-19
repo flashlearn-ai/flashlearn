@@ -210,6 +210,14 @@ export type Presentation = "mixed" | "choice" | "reveal";
  *  so a session dealt up front and one appended a card at a time alternate the
  *  same way instead of each having its own idea of "every other card". */
 export function dealCard(card: StudyCard, pool: Card[], presentation: Presentation, position: number): SessionCard {
+  const wanted = presentation === "mixed" ? (position % 2 === 0 ? "choice" : "reveal") : presentation;
+  // A recall card shows its answer and is scored by the rating, so the options
+  // and the confusion map would be built and thrown away. Each costs a scan of
+  // the whole deck per choice, which on a large deck is the bulk of dealing.
+  // The correct answer is still carried, because a session records it.
+  if (wanted === "reveal") {
+    return { card, choices: [{ text: card.answer, correct: true }], confusable: new Map(), mode: "reveal", answer: null, grade: null, outcome: null };
+  }
   const choices = buildChoices(card, pool);
   const confusable = new Map<string, Card>();
   for (const choice of choices) {
@@ -217,9 +225,7 @@ export function dealCard(card: StudyCard, pool: Card[], presentation: Presentati
     if (from) confusable.set(choice.text, from);
   }
   // One option answers itself, so such a card is always recall.
-  const askable = choices.length > 1;
-  const wanted = presentation === "mixed" ? (position % 2 === 0 ? "choice" : "reveal") : presentation;
-  return { card, choices, confusable, mode: askable && wanted === "choice" ? "choice" : "reveal", answer: null, grade: null, outcome: null };
+  return { card, choices, confusable, mode: choices.length > 1 ? "choice" : "reveal", answer: null, grade: null, outcome: null };
 }
 
 /** Pairs each session card with its choices and the cards they were taken from. */
