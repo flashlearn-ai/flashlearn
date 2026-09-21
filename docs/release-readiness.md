@@ -58,7 +58,7 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 ## npm artifact
 
-`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.2.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
+`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.2.1`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
 
 ```text
 .release/npm/
@@ -111,16 +111,16 @@ In npm, open the package **Settings → Trusted publishing**, choose GitHub Acti
 
 1. Update `release/package.json` in a reviewed commit on `main`; keep install examples and site docs synchronized.
 2. Run `release:check` and inspect `.release/artifact.json`.
-3. Open **Releases → Draft a new release**. Choose a matching tag (for example `v0.2.0`) at the reviewed `main` commit and write or generate the release notes. For a version with a suffix (for example `0.2.0-beta.0`), select **Set as a pre-release**; for `0.2.0`, leave it unchecked.
+3. Open **Releases → Draft a new release**. Choose the matching `v0.2.1` tag at the reviewed `main` commit and write or generate the release notes. For a version with a suffix (for example `0.3.0-beta.0`), select **Set as a pre-release**; for `0.2.1`, leave it unchecked.
 4. Click **Publish release**. The `release: published` event triggers **npm release** for both stable releases and prereleases. Drafts, edits, and tag pushes alone do not publish. Merge this workflow before creating the release; releases created with another workflow's default `GITHUB_TOKEN` do not trigger downstream workflows, so use the GitHub UI or `gh release create` with your own authenticated account.
 5. The workflow checks out the release tag, verifies tag/version/prerelease agreement and that the tagged commit is on `main`, then rebuilds, packs, and installs/tests the artifact.
 6. It verifies both artifact receipts and publishes the exact `.tgz` using OIDC with provenance: prereleases use `next`, stable versions use `latest`. It verifies the registry's SHA-512 integrity afterward.
 7. The final job attaches `flashlearn.tgz` and `artifact.json` to the existing GitHub Release. The workflow does not create another release.
 
-If publication or attachment fails, use **Actions → npm release → Re-run failed jobs** (or **Re-run all jobs**) on the original run. Alternatively, choose **Run workflow**, select `main`, and enter the existing published release tag (for example `v0.2.0`). From the CLI:
+If publication or attachment fails, use **Actions → npm release → Re-run failed jobs** (or **Re-run all jobs**) on the original run. Alternatively, choose **Run workflow**, select `main`, and enter the existing published release tag (for example `v0.2.1`). From the CLI:
 
 ```bash
-gh workflow run publish.yml --ref main -f tag=v0.2.0
+gh workflow run publish.yml --ref main -f tag=v0.2.1
 ```
 
 Manual runs fetch the release from GitHub, check out its tag, and run the same version/prerelease/main-ancestry and artifact checks as the release trigger. They can retry tags that predate manual dispatch because the workflow resolves metadata before checking out the target tag. The tag must have a published, non-draft GitHub Release. If `prod` has deployment restrictions, allow the dispatch branch (`main`) as well as release tags; checkout does not change the workflow's triggering ref.
