@@ -1,32 +1,18 @@
 import type { Server } from "node:http";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  CompositeExtractor,
-  EndpointExtractor,
-  ExtractionService,
-  MarkdownExtractor,
-  deterministicExtractor,
-  generateCards,
-} from "@flashlearn/extraction";
 import { createFlashLearnServer } from "@flashlearn/frontend";
 import { scheduleReview, selectNextCard } from "@flashlearn/learning";
 import { initializeStore, JsonCardRepository, JsonReviewRepository } from "@flashlearn/storage";
-import type { CliDependencies, GenerationProvider } from "./dependencies.js";
+import type { CliDependencies } from "./dependencies.js";
 import { flashlearnRoot } from "./paths.js";
 import { readProjectName } from "./project-name.js";
-import { AnthropicExtractor, CopilotExtractor } from "./providers.js";
+import { generateBounded } from "./generation.js";
 
 export function createProductionDependencies(): CliDependencies {
   return {
     initializeStore,
-    generateCards: (root, options) => {
-      if (!options?.provider) return generateCards(root, undefined, options);
-      const { provider, ...scope } = options;
-      const extractor = extractorFor(provider);
-      const concurrency = provider.kind === "copilot" ? 1 : 8;
-      return new ExtractionService(extractor, concurrency).generateFromRepository(root, scope);
-    },
+    generateCards: generateBounded,
     createCardRepository: (root) => new JsonCardRepository(join(flashlearnRoot(root), "cards.json")),
     createReviewRepository: (root) => new JsonReviewRepository(join(flashlearnRoot(root), "review.json")),
     scheduleReview,
@@ -54,14 +40,4 @@ export function createProductionDependencies(): CliDependencies {
     },
     now: () => new Date(),
   };
-}
-
-function extractorFor(provider: GenerationProvider) {
-  if (provider.kind === "deterministic") return deterministicExtractor();
-  const code = provider.kind === "copilot"
-    ? new CopilotExtractor()
-    : provider.kind === "anthropic"
-      ? new AnthropicExtractor(provider.apiKey, provider.model)
-      : new EndpointExtractor(provider);
-  return new CompositeExtractor(code, new MarkdownExtractor());
 }

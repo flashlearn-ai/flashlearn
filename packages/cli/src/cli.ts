@@ -2,10 +2,10 @@ import { isAbsolute, resolve, sep } from "node:path";
 import { flashlearnRoot } from "./paths.js";
 import type { Card } from "../../../contracts/index.js";
 import type { CliWorkstream, ProjectStatus, StartOptions } from "./workstream.js";
-import type { GenerationProvider, GenerateOptions } from "./dependencies.js";
+import type { GenerationProvider, GenerateOptions, GenerationProgress } from "./dependencies.js";
 import { toYaml } from "./yaml.js";
 
-export const CLI_VERSION = "0.2.0";
+export const CLI_VERSION = "0.3.0";
 
 export const HELP = `Usage: flashlearn <command> [directory] [options]
 
@@ -25,7 +25,9 @@ Start options:
 
 Generate options:
   --subpath <path>        Scan a repository-relative directory
-  --max-files <number>    Scan at most this many supported files
+  --max-files <number>    Limit eligible files after importance ranking
+  --copilot              Use Copilot for this run (explicit opt-in)
+  --copilot-model <name>  Copilot model (default: auto; implies --copilot)
 
 Query options:
   -o, --output <format>   Output as text, json, or yaml (default: text)
@@ -37,7 +39,7 @@ General options:
 
 const COMMAND_HELP: Record<string, string> = {
   init: `Usage: flashlearn init [directory] [options]\n\nOptional: create empty .flashlearn storage. Generate performs this step automatically.`,
-  generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate questions. No separate init is needed.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Positive integer limit on scanned supported files`,
+  generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate at most 100 cards per run. No separate init is needed.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Limit eligible files after importance ranking\n  --copilot            Opt into Copilot generation (model: auto)\n  --copilot-model <name>  Override the model; implies --copilot`,
   start: `Usage: flashlearn start [directory] [options]\n\nStart the local learning server. Offer generation if the deck is empty.\n\nOptions:\n  --host <host>  Host to bind (default: localhost)\n  --port <port>  Port to bind (default: 4173)\n  -y, --yes     Approve empty-deck generation (may use the configured AI endpoint)`,
   project: `Usage: flashlearn project <command> [options]\n\nCommands:\n  show    Show this invocation's project directory\n  status  Show project learning status\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
   "project show": `Usage: flashlearn project show [options]\n\nShow this invocation's project directory.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
@@ -55,6 +57,7 @@ export type CliIO = {
   prompt?(message: string, secret?: boolean): Promise<string | null>;
   detectCopilot?(): Promise<boolean>;
   endpointConfigured?: boolean;
+  progress?(progress: GenerationProgress): void;
 };
 
 class UsageError extends Error {}
@@ -173,6 +176,12 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
 }
 
 async function generationOptions(io: CliIO, options: GenerateOptions = {}): Promise<GenerateOptions> {
+  if (options.provider?.kind === "copilot") {
+    if (!await io.detectCopilot?.()) throw new Error("Copilot CLI is unavailable on PATH. Install/authenticate Copilot or omit --copilot for provider setup.");
+    const model = options.copilotModel ?? "auto";
+    io.stderr(`Using GitHub Copilot CLI (model: ${model}). Up to 100 cards; code is sent to Copilot.`);
+    return { ...options, provider: { kind: "copilot", model } };
+  }
   if (io.endpointConfigured) {
     io.stderr("Using the configured inference endpoint.");
     return options;
@@ -181,7 +190,7 @@ async function generationOptions(io: CliIO, options: GenerateOptions = {}): Prom
   if (io.confirm && await io.detectCopilot?.()) {
     const approved = await io.confirm("GitHub Copilot CLI was found on PATH. Use `copilot -p` to generate cards from source files? [y/N] ");
     if (approved) {
-      io.stderr("Using GitHub Copilot CLI for code card generation.");
+      io.stderr("Using GitHub Copilot CLI for code card generation (model: auto; up to 100 cards).");
       return { ...options, provider: { kind: "copilot" } };
     }
   }
@@ -232,8 +241,16 @@ function deterministicOptions(io: CliIO, options: GenerateOptions, reason: strin
 }
 
 async function generateForStudy(service: CliWorkstream, io: CliIO, directory: string, options?: GenerateOptions): Promise<boolean> {
-  io.stderr("Generating study cards (may use the configured AI endpoint)...");
-  const cards = await service.generate(directory, options);
+  io.stderr("Generating up to 100 study cards...");
+  let current: GenerationProgress = { phase: "scanning", completed: 0, total: 0, cards: 0 };
+  const onProgress = (progress: GenerationProgress) => { current = { ...progress, message: undefined }; io.progress?.(progress); };
+  const timer = io.progress ? setInterval(() => io.progress?.(current), 1_000) : undefined;
+  let cards: Card[];
+  try {
+    cards = await service.generate(directory, io.progress ? { ...options, onProgress } : options);
+  } finally {
+    if (timer) clearInterval(timer);
+  }
   io.stdout(`Generated and stored ${cards.length} card${cards.length === 1 ? "" : "s"} (new or updated).`);
   const available = (await service.listCards(directory)).length;
   if (!available) {
@@ -340,7 +357,14 @@ function parseGenerate(args: string[]): { directory?: string; options: GenerateO
   const options: GenerateOptions = {};
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
-    if (arg === "--subpath") {
+    if (arg === "--copilot") {
+      options.provider = { kind: "copilot" };
+    } else if (arg === "--copilot-model") {
+      if (options.copilotModel !== undefined) throw new UsageError("Specify --copilot-model only once");
+      options.copilotModel = requireValue(args, ++index, arg).trim();
+      if (!options.copilotModel) throw new UsageError("--copilot-model requires a model");
+      options.provider = { kind: "copilot" };
+    } else if (arg === "--subpath") {
       if (options.subpath !== undefined) throw new UsageError("Specify --subpath only once");
       options.subpath = requireValue(args, ++index, arg);
       if (!options.subpath.trim()) throw new UsageError("--subpath requires a path");

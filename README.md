@@ -39,7 +39,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Owner:** David
    - **Features:** `init`, `generate`, `start`, `project show/status`, `question list/get`, per-invocation `--project`, structured output, scoped extraction, local server startup, orchestration, and integration tests
    - **Dependencies:** May depend on all packages
-   - **Current:** Cwd-based project selection, text/JSON/YAML queries, auto-initializing generation, empty-deck startup confirmation, and `--subpath`/`--max-files` extraction scope
+   - **Current:** Cwd-based project selection, text/JSON/YAML queries, auto-initializing generation with progress and a 100-card/run cap, bounded Copilot `auto` batching with model override, empty-deck startup confirmation, and extraction scope
    - **Next:** Integrate completed owner packages as they merge
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
@@ -254,7 +254,9 @@ Installed CLI commands default to the caller's working directory. Every command 
 
 The recommended first run is `flashlearn generate` followed by `flashlearn start`. Generation initializes missing storage, so `init` is optional. Without configured endpoint variables, an interactive run detects GitHub Copilot CLI and asks before using `copilot -p`; otherwise it offers OpenAI, Claude, custom endpoint, or deterministic generation. Entered API keys are current-run-only and never persisted. Non-interactive runs clearly use the deterministic fallback. Empty-deck startup asks for confirmation in a terminal (default no); `flashlearn start --yes` (or `-y`) approves generation. Existing decks are not regenerated; failed generation or a still-empty deck prevents startup.
 
-Scope extraction with `flashlearn generate --project /path/to/repo --subpath src --max-files 20`. The subpath must be a repository-relative directory without `..`; the limit must be a positive safe integer and counts supported files, not cards. These are `generate` options only. Source paths remain repository-relative. Generation upserts cards without deleting cards outside the scan; it exits 1 if no study cards are available afterward.
+Scope extraction with `flashlearn generate --project /path/to/repo --subpath src --max-files 20`. The subpath must be a repository-relative directory without `..`; the limit must be a positive safe integer and counts eligible files after importance ranking, not traversal or cards. These are `generate` options only. Source paths remain repository-relative. Generation upserts cards without deleting cards outside the scan; it exits 1 if no study cards are available afterward.
+
+Generation reports elapsed progress on stderr and saves at most 100 new or updated cards per run, retaining older cards. `generate --copilot` explicitly selects Copilot with automatic fast model routing; `--copilot-model <name>` overrides the model and implies opt-in. A local importance pass prioritizes README/design docs and related code while excluding dependency and agent-tooling content. AI providers generate evidence-backed questions from both docs and code in at most eight parallel batches, then rank for understanding and diversity without filler. See the [CLI benchmark](packages/cli/README.md#generation-benchmark) for measured Substrate runs under one minute, quality results, and coverage limits.
 
 `project show/status` and `question list/get` accept `-o, --output text|json|yaml` (default text). See the [CLI README](packages/cli/README.md) for complete syntax.
 

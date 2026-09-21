@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Card, ReviewResult } from "../../../contracts/index.js";
 import type { CliDependencies, FrontendServices, GenerateOptions } from "./dependencies.js";
+import { MAX_GENERATED_CARDS } from "./dependencies.js";
 import { projectRoot } from "./paths.js";
 
 export type StartOptions = {
@@ -41,10 +42,11 @@ export class CliService implements CliWorkstream {
     const root = projectRoot(directory);
     await this.dependencies.initializeStore(root);
     const repository = this.dependencies.createCardRepository(root);
-    const generatedCards = await this.dependencies.generateCards(root, options);
+    const generatedCards = (await this.dependencies.generateCards(root, options)).slice(0, MAX_GENERATED_CARDS);
     const updatedAt = this.dependencies.now().toISOString();
     const cards: Card[] = [];
 
+    options?.onProgress?.({ phase: "saving", completed: 0, total: generatedCards.length, cards: generatedCards.length });
     for (const generated of generatedCards) {
       this.validateGeneratedCard(generated);
       const id = createHash("sha256")
@@ -60,8 +62,10 @@ export class CliService implements CliWorkstream {
       };
       await repository.save(card);
       cards.push(card);
+      options?.onProgress?.({ phase: "saving", completed: cards.length, total: generatedCards.length, cards: cards.length });
     }
 
+    options?.onProgress?.({ phase: "done", completed: cards.length, total: cards.length, cards: cards.length });
     return cards;
   }
 

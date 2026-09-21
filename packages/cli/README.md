@@ -44,12 +44,45 @@ Successful lifecycle commands print a `Next:` block with a shell comment and a c
 
 ## Extraction scope
 
+Every generation run saves **at most 100 new or updated cards**. Existing cards are retained, so the stored deck can exceed 100 after multiple runs. Stderr shows scan, generation, and persistence progress with elapsed time: a live bar in terminals and throttled plain lines when redirected.
+
+```bash
+flashlearn generate --project /path/to/repo --copilot
+flashlearn generate --project /path/to/repo --copilot-model auto
+```
+
+`--copilot` explicitly opts into sending code to Copilot and overrides endpoint environment configuration for that invocation. `--copilot-model <name>` implies `--copilot` and passes the model to Copilot; default `auto` uses its fast routing tier. Interactive Copilot acceptance also defaults to `auto`, without another prompt. The CLI must be installed and authenticated; missing executables fail with guidance.
+
+### Understanding-first selection
+
+The local first pass excludes license/dependency copies, hidden agent-tooling folders, tests/fixtures, generated sources, and contributor-process documents. It ranks the shallowest README first, boosts its linked design docs, glossary and lifecycle guides, then prioritizes entrypoints and behavior-rich code. Documentation gets reserved batches; related code is grouped by subsystem rather than sampled alphabetically. README context is supplied to every AI request when available **within the selected subpath/file budget**.
+
+Copilot, OpenAI-compatible endpoints, and Claude use the same curriculum prompt for **both code and Markdown**. Up to eight parallel batches (four files each, with a dedicated README batch when present) request at most ten candidates each. Excerpts preserve complete sections/declarations where practical within 7,000 characters per file. Each call has a 45-second timeout; Copilot processes are killed on timeout. Calls may fail or yield no accepted cards, and are reported rather than hidden with filler.
+
+Each AI candidate must include a learning objective and a verbatim evidence quote from its cited excerpt. Quotes from another file or invented IDs are rejected; path and SHA are assigned locally. Evidence matching establishes textual support, **not semantic proof of the whole answer**. Documentation-derived questions name their document; documents marked aspirational get an explicit design-status qualification. Stale documentation and model errors still warrant human review.
+
+Quality checks reject vague helper/heading questions, constants/locator trivia, incomplete or truncated answers, and detectable list-count mismatches. Ranked candidates favor architectural foundations and reasoning; token-overlap/concept heuristics remove near-duplicate questions/answers and cap dominance at eight cards per file and 25 per subsystem. These are heuristics, not perfect semantic deduplication. **100 is a maximum, not a target: no deterministic filler is added in AI mode.** Offline deterministic mode uses the same source selection and ranking on up to 80 important files, with explicitly labeled section/doc-comment recall.
+
+This is bounded coverage, not exhaustive analysis. The one-minute target depends on scanning, provider latency, and storage; it is not a universal SLA.
+
+### Generation benchmark
+
+After `npm run build`, run:
+
+```bash
+node packages/cli/scripts/benchmark-generation.mjs /path/to/repo auto
+```
+
+The benchmark clones committed source into a temporary directory, runs the compiled CLI from process launch through persistence, reports elapsed time/card counts, and removes the clone. Add `--keep` after the model to retain the deck for local review. It excludes clone/build time and preserves the original repository's deck. It exits nonzero for a failed run, zero cards, over 100 cards, or elapsed time of at least 60 seconds.
+
+Quality evaluation found 47/100 cards from license copies or agent tooling in the earlier fast-generation prototype, and zero project-documentation cards. The revised final-plan run on `~/substrate` with Copilot `auto` took **49.0s**, selecting **36 AI cards (21 code-backed, 15 documentation-backed, including five README cards)** and **zero excluded-source cards**. It classified 512 files, excluded 96, and selected 29 important files across eight batches; one batch yielded no evidence-backed cards. Earlier tuning runs took 33.3–49.0s, with variable output. The reviewed final deck covers actor/worker multiplexing, Kubernetes' role, snapshot tradeoffs, component ownership, request flow, scheduling, cache safety and recovery. Timings are observations, not provider guarantees; no generated deck is committed.
+
 ```bash
 flashlearn generate --project /path/to/repo --subpath src --max-files 20
 ```
 
 - `--subpath <directory>` restricts extraction to a repository-relative directory. Default: the whole project. Absolute paths and `..` segments are argument errors. Individual file subpaths are not supported by the existing extraction scanner.
-- `--max-files <number>` limits scanned supported files, not generated cards. It must be a positive safe integer; default: no limit. Extraction determines ordering and ignored sources.
+- `--max-files <number>` limits eligible files considered for generation **after** classification/ranking, not filesystem traversal or card count. It must be a positive safe integer; default: no explicit file limit (AI batch/offline budgets still apply). This prioritizes README over lexically earlier tooling files.
 - These options belong to `generate` only. To scope first-run generation, run `generate` explicitly before `start`.
 - The project root remains unchanged, preserving repository-relative source paths and Git attribution. Scoping does not delete existing cards outside the selected directory.
 
@@ -73,7 +106,7 @@ flashlearn generate --project /path/to/repo --subpath src --max-files 20
 | `getCard(id, directory?)`, `listCards(directory?)` | Read cards for the supplied directory or process cwd. |
 | `status(directory?)` | Count cards, reviewed/unreviewed cards and cards due now. |
 
-The CLI always passes its resolved invocation directory explicitly. `GenerateOptions` (`subpath`, `maxFiles`) is carried through the CLI-owned dependency seam; production adapts it to extraction's existing options argument. `CliIO.confirm` provides injectable startup confirmation; `src/confirm.ts` implements terminal prompting.
+The CLI passes its resolved invocation directory explicitly. CLI-owned generation options carry scope, provider/model selection and progress through dependency injection. Extraction's public scanner supplies attributed documents; CLI plans bounded inference and quality ranking. `CliIO.confirm` provides injectable startup confirmation; `src/confirm.ts` implements terminal prompting.
 
 Review submissions serialize the complete card check/read/schedule/save operation per resolved project path and card ID, across service instances in the same process. A rejected operation reaches its caller while subsequent queued requests proceed. Different cards/projects can proceed independently. This is process-local coordination, not a cross-process filesystem lock; distinct symlink aliases are not canonicalized. HTTP contracts and learning's `/api/cards/next` selection semantics are unchanged.
 

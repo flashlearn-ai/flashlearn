@@ -58,7 +58,7 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 ## npm artifact
 
-`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.2.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
+`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.3.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
 
 ```text
 .release/npm/
@@ -78,10 +78,12 @@ The allowlisted tarball contains no workspace sources, development tooling, Husk
 
 ### CLI behavior to verify before release
 
+- Generation caps new/updated cards at 100 per run and reports scan/selection/generation/save progress on stderr. Existing decks are not pruned. `generate --copilot` opts in with `auto` fast routing; `--copilot-model <name>` overrides the model. Explicit Copilot takes precedence over endpoint environment variables. Classification excludes low-value sources and prioritizes README/design docs plus important code by subsystem. All AI providers generate evidence-backed doc/code questions in at most eight parallel four-file batches with 7,000-character excerpts and 45-second timeouts. Ranking favors foundations and reasoning, filters incomplete/trivial content, and limits duplication/source dominance. No deterministic filler is added; docs/aspirational claims are labeled. Run `node packages/cli/scripts/benchmark-generation.mjs /path/to/repo auto --keep` after building to measure and evaluate an isolated source clone.
+
 - Every command defaults to cwd. `--project`/`-p` selects a directory for one invocation; relative paths resolve against cwd. Positional directories remain supported for `init`, `generate`, and `start`, mutually exclusive with `--project`.
 - `FLASHLEARN_PROJECT` and legacy saved user configuration are ignored and left untouched. `project set` returns exit code 2 with migration guidance. `project show` reports this invocation's directory; `init` only initializes storage.
 - Recommend `generate` → `start`: generation automatically initializes missing storage; `init` is optional. Empty-deck startup prompts in a terminal (default no), or exits 1 with guidance non-interactively. `start --yes`/`-y` approves generation, including use of a configured endpoint. Existing decks are not regenerated. Failed generation or a still-empty deck prevents startup.
-- `generate --subpath src --max-files 20` scopes extraction without changing the project root or attribution. The subpath must be a repository-relative directory without `..`; the file limit must be a positive safe integer. These flags are generation-only. Generation upserts rather than pruning and exits 1 if no study cards remain available.
+- `generate --subpath src --max-files 20` scopes extraction without changing the project root or attribution. The subpath must be a repository-relative directory without `..`; the file limit must be a positive safe integer, applied to eligible ranked documents after scanning. These flags are generation-only. Generation upserts rather than pruning and exits 1 if no study cards remain available.
 - Queries support `-o, --output text|json|yaml`. Project diagnostics and generation progress go to stderr. For source-runner JSON/YAML, use `npm --silent run cli -- project status --project /path/to/repo -o json`; the runner uses the repository root as cwd and ensures sibling build outputs are ready.
 - Offline extraction stays local. Interactive generation may detect and offer `copilot -p`, or collect current-run-only credentials for OpenAI, Claude, or a custom endpoint. It clearly calls out deterministic fallback. Any selected AI provider receives code and has access controls and retention separate from repository permissions.
 
