@@ -31,6 +31,28 @@ export function matchesPublishedArtifact(manifest, metadata, integrity) {
   return true;
 }
 
+export const PUBLISH_REPLICATION_DELAY_MS = 15_000;
+export const PUBLISH_VERIFY_ATTEMPTS = 10;
+export const PUBLISH_VERIFY_INTERVAL_MS = 5_000;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function waitForPublishedArtifact(manifest, integrity, options = {}) {
+  const {
+    initialDelayMs = PUBLISH_REPLICATION_DELAY_MS,
+    attempts = PUBLISH_VERIFY_ATTEMPTS,
+    intervalMs = PUBLISH_VERIFY_INTERVAL_MS,
+    lookup = publishedVersion,
+    sleep = wait,
+  } = options;
+  await sleep(initialDelayMs);
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (matchesPublishedArtifact(manifest, await lookup(manifest), integrity)) return true;
+    if (attempt < attempts) await sleep(intervalMs);
+  }
+  return false;
+}
+
 export async function publishedVersion(manifest, fetchImpl = fetch) {
   const response = await fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(manifest.name)}/${encodeURIComponent(manifest.version)}`, {
     headers: { accept: "application/json", "cache-control": "no-cache" },
