@@ -68,6 +68,9 @@ export class RecordingDependencies implements CliDependencies {
   currentTime = new Date("2026-01-02T03:04:05.000Z");
   server = { kind: "fake-server" };
   directories = new Set<string>();
+  /** What the project declares itself to be, and every root asked about it. */
+  projectName: string | null = null;
+  projectNameReads: string[] = [];
 
   async initializeStore(root: string): Promise<void> {
     this.initializedRoots.push(root);
@@ -123,6 +126,11 @@ export class RecordingDependencies implements CliDependencies {
 
   async isDirectory(path: string): Promise<boolean> {
     return this.directories.has(path);
+  }
+
+  async readProjectName(root: string): Promise<string | null> {
+    this.projectNameReads.push(root);
+    return this.projectName;
   }
 
   now(): Date {

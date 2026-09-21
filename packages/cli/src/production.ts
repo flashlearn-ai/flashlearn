@@ -7,6 +7,7 @@ import { scheduleReview, selectNextCard } from "@flashlearn/learning";
 import { initializeStore, JsonCardRepository, JsonReviewRepository } from "@flashlearn/storage";
 import type { CliDependencies } from "./dependencies.js";
 import { flashlearnRoot } from "./paths.js";
+import { readProjectName } from "./project-name.js";
 
 export function createProductionDependencies(): CliDependencies {
   return {
@@ -28,6 +29,7 @@ export function createProductionDependencies(): CliDependencies {
         });
       });
     },
+    readProjectName,
     isDirectory: async (path) => {
       try {
         return (await stat(path)).isDirectory();

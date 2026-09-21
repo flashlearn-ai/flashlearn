@@ -1,7 +1,8 @@
 import { useState, type CSSProperties } from "react";
-import { SESSION_LIMIT, dueLabel, type Choice, type ReviewResult, type Run, type SessionCard, type TopicGroup } from "../lib/deck";
+import { SESSION_LIMIT, dueLabel, wasCorrect, type Choice, type Presentation, type ReviewResult, type Run, type SessionCard, type TopicGroup } from "../lib/deck";
 import type { TopicInsight } from "../lib/insights";
-import { EXCERPTS, TOPIC_META, type TopicIcon } from "../data";
+import { TOPIC_META, type TopicIcon } from "../topics";
+import { excerptFor } from "../excerpts";
 import { Arrow, Check, ChevronDown, Database, File, FileText, Repeat, Terminal, X } from "../icons";
 import { Mark } from "./Mark";
 import { Ring } from "./Ring";
@@ -36,7 +37,7 @@ export function EmptyDeck() {
   );
 }
 
-export function TopicChooser({ groups, insights, total, onStart }: { groups: TopicGroup[]; insights: TopicInsight[]; total: number; onStart: (ids: string[], labels: string) => void }) {
+export function TopicChooser({ groups, insights, total, projectName, presentation, onPresentation, onStart }: { groups: TopicGroup[]; insights: TopicInsight[]; total: number; projectName?: string | null; presentation: Presentation; onPresentation: (mode: Presentation) => void; onStart: (ids: string[], labels: string) => void }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const insightByTopic = new Map(insights.map((insight) => [insight.id, insight]));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -49,7 +50,7 @@ export function TopicChooser({ groups, insights, total, onStart }: { groups: Top
   return (
     <div className="pick">
       <div className="pick-head">
-        <div><span className="t">Choose topics</span><span className="psub">{groups.length} topics · {total.toLocaleString()} cards</span></div>
+        <div><span className="t">Choose topics</span><span className="psub">{projectName ? `${projectName} · ` : ""}{groups.length} topics · {total.toLocaleString()} cards</span></div>
         <button className="selall" onClick={selectAll}>{allOn ? "Clear" : "Select all"}</button>
       </div>
       <div className="pick-body">
@@ -71,6 +72,9 @@ export function TopicChooser({ groups, insights, total, onStart }: { groups: Top
             );
           })}
         </div>
+        {/* What to study, then how it is asked, then go. Sits immediately above
+          * the start button on both cards so the two entry points read alike. */}
+        <PresentationChoice value={presentation} onChange={onPresentation} />
         <button className="start" disabled={count === 0} onClick={start}>
           {count === 0 ? "Select a topic to begin" : `Start · ${count} question${count === 1 ? "" : "s"}`}<Arrow size={16} />
         </button>
@@ -90,12 +94,16 @@ export function FlashCard({ entry, index, total, current, onChoose, onGrade }: {
   const answered = chosen !== null;
   // Only the sample deck ships excerpts; a live card resolves to undefined and
   // the source panel shows attribution without a snippet.
-  const ex = EXCERPTS[card.id];
+  const ex = excerptFor(card.id);
   const missed = answered && !chosen.correct;
-  // A deck can be too small to draw a wrong answer from. Offering one option and
-  // calling it a quiz is a test nobody can fail, so the card just states itself.
-  const quiz = choices.length > 1;
-  const settled = answered || !quiz;
+  // A deck can be too small to draw a wrong answer from, and a session can ask
+  // for recall instead. Offering one option and calling it a quiz is a test
+  // nobody can fail, so the card asks the learner to recall and rate it.
+  // `dealCard` already forces recall when a card has too few options to ask
+  // anything, so the mode is the whole answer here.
+  const quiz = entry.mode === "choice";
+  const [revealed, setRevealed] = useState(false);
+  const settled = quiz ? answered : revealed;
   // On a miss the evidence opens itself — the source is the explanation, so it
   // shouldn't need a click. A correct answer leaves it folded.
   const [opened, setOpened] = useState<boolean | null>(null);
@@ -116,7 +124,13 @@ export function FlashCard({ entry, index, total, current, onChoose, onGrade }: {
         <span className="qseg">{Array.from({ length: total }, (_, i) => <i key={i} className={i < index ? "done" : i === index ? "cur" : ""} />)}</span>
       </div>
       <p className="qtext">{card.question}</p>
-      {!quiz ? <p className="lone">{card.answer}</p> : (
+      {!quiz ? (
+        // Past cards in the transcript show their answer; only the card under
+        // review is still waiting to be recalled.
+        !revealed && current
+          ? <button className="start" onClick={() => setRevealed(true)}>Reveal answer</button>
+          : <p className="lone">{card.answer}</p>
+      ) : (
       <div className="qchoices">
         {choices.map((c, i) => {
           const cls = !answered ? "" : c.correct ? " correct" : c === chosen ? " wrong" : " dim";
@@ -131,10 +145,19 @@ export function FlashCard({ entry, index, total, current, onChoose, onGrade }: {
       </div>
       )}
 
-      <button className={`qsrc${open ? " open" : ""}`} onClick={() => setOpened(!open)}>
-        <File size={11} />{card.source.path} {sha && <span className="sha">@{sha.slice(0, 7)}</span>}
-        <ChevronDown size={13} className="chev" />
-      </button>
+      {/* Only the sample deck ships excerpts. A live card has nothing to
+        * expand, so its attribution is plain text rather than a control that
+        * invites a click and then does nothing. */}
+      {ex ? (
+        <button className={`qsrc${open ? " open" : ""}`} onClick={() => setOpened(!open)}>
+          <File size={11} />{card.source.path} {sha && <span className="sha">@{sha.slice(0, 7)}</span>}
+          <ChevronDown size={13} className="chev" />
+        </button>
+      ) : (
+        <p className="qsrc">
+          <File size={11} />{card.source.path} {sha && <span className="sha">@{sha.slice(0, 7)}</span>}
+        </p>
+      )}
       {open && ex && (
         <div className="qcode">
           <div className="qcode-h"><Check size={12} className="g" /> generated from this source · {ex.lines}</div>
@@ -148,7 +171,16 @@ export function FlashCard({ entry, index, total, current, onChoose, onGrade }: {
         </p>
       )}
 
-      {settled && !grade && current && (!quiz || chosen?.correct ? (
+      {settled && !grade && current && (!quiz ? (
+        <div className="grade">
+          <div className="grade-q">How well did you recall it?</div>
+          <div className="grade-btns">
+            {(["incorrect", "hard", "correct", "easy"] as const).map((result) => (
+              <button className="g" key={result} onClick={() => onGrade(result)}>{result[0]!.toUpperCase() + result.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+      ) : chosen?.correct ? (
         <div className="grade">
           <div className="grade-q">How did that go?</div>
           <div className="grade-btns">
@@ -194,7 +226,7 @@ const CONFETTI = ["#12965a", "#8ff0bd", "#3f63d6", "#6a45c0", "#f2b73d"];
  *  what you were weakest on — lives in the details pane, so it isn't repeated here. */
 export function Results({ cards, onAgain }: { cards: SessionCard[]; onAgain: () => void }) {
   const total = cards.length;
-  const correct = cards.filter((c) => c.answer?.correct).length;
+  const correct = cards.filter(wasCorrect).length;
   const pct = Math.round((correct / total) * 100);
   const perfect = correct === total;
   const line = pct >= 80 ? "Sharp. You know this cold." : pct >= 50 ? "Solid — a couple to revisit." : "Good start. Run it again.";
@@ -217,6 +249,18 @@ export function Results({ cards, onAgain }: { cards: SessionCard[]; onAgain: () 
         </div>
       </div>
       <button className="start again" onClick={onAgain}>Study more<Arrow size={16} /></button>
+    </div>
+  );
+}
+
+/** How the learner wants cards asked. Offered before a session starts, on both
+ *  ways in, because it changes how every card in that session is dealt. */
+export function PresentationChoice({ value, onChange }: { value: Presentation; onChange: (mode: Presentation) => void }) {
+  return (
+    <div className="modes" role="group" aria-label="How cards are asked">
+      {([["mixed", "Mixed"], ["choice", "Multiple choice"], ["reveal", "Recall only"]] as const).map(([mode, label]) => (
+        <button key={mode} className="start" aria-pressed={value === mode} onClick={() => onChange(mode)}>{label}</button>
+      ))}
     </div>
   );
 }

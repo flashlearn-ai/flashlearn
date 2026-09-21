@@ -1,4 +1,4 @@
-import { dueLabel, scoreOf, type Run, type SessionCard } from "../lib/deck";
+import { dueLabel, scoreOf, wasAnswered, wasCorrect, type Run, type SessionCard } from "../lib/deck";
 import type { TopicInsight } from "../lib/insights";
 import { Mark } from "./Mark";
 import { Ring } from "./Ring";
@@ -14,10 +14,10 @@ export type Progress = {
  *  summary — so the numbers outlive the chat canvas instead of scrolling away. */
 function Session({ runs, cards, done }: Progress) {
   const total = cards.length;
-  const answered = cards.filter((c) => c.answer).length;
-  const correct = cards.filter((c) => c.answer?.correct).length;
-  const current = runs.find((run) => run.cards.some((_, i) => !cards[run.start + i]?.answer));
-  const missed = runs.flatMap((run) => run.cards.filter((_, i) => { const a = cards[run.start + i]?.answer; return a && !a.correct; }));
+  const answered = cards.filter(wasAnswered).length;
+  const correct = cards.filter(wasCorrect).length;
+  const current = runs.find((run) => run.cards.some((_, i) => { const entry = cards[run.start + i]; return !entry || !wasAnswered(entry); }));
+  const missed = runs.flatMap((run) => run.cards.filter((_, i) => { const entry = cards[run.start + i]; return entry && wasAnswered(entry) && !wasCorrect(entry); }));
   // Counted from the dates the learning engine returned, not from a local table.
   const due = cards.map((c) => dueLabel(c.outcome?.due)).filter((label): label is string => label !== null);
 
@@ -31,7 +31,7 @@ function Session({ runs, cards, done }: Progress) {
         </div>
         <div className="runs">
           {runs.map((run) => {
-            const scored = run.cards.filter((_, i) => cards[run.start + i]?.answer);
+            const scored = run.cards.filter((_, i) => { const entry = cards[run.start + i]; return entry ? wasAnswered(entry) : false; });
             const hit = scoreOf(run, cards);
             const state = run === current ? " now" : scored.length === 0 ? " next" : "";
             return (
@@ -39,8 +39,10 @@ function Session({ runs, cards, done }: Progress) {
                 <span className="lab">{run.label}</span>
                 <span className="bars">
                   {run.cards.map((card, i) => {
-                    const answer = cards[run.start + i]?.answer;
-                    return <i key={card.id} className={answer ? (answer.correct ? "ok" : "no") : ""} />;
+                    const entry = cards[run.start + i];
+                    // Recall cards record no chosen option, so reading `.answer`
+                    // here left a finished run looking untouched.
+                    return <i key={card.id} className={entry && wasAnswered(entry) ? (wasCorrect(entry) ? "ok" : "no") : ""} />;
                   })}
                 </span>
                 <span className="sc">{scored.length === 0 ? "—" : `${hit}/${run.cards.length}`}</span>
@@ -80,7 +82,7 @@ function Session({ runs, cards, done }: Progress) {
 }
 
 /** Teams-style right pane. Idle it introduces the app; mid-session it tracks the run. */
-export function DetailsPane({ cards, topics, sources, progress, live, insights }: { cards: number; topics: number; sources: number; progress: Progress | null; live: boolean; insights: TopicInsight[] }) {
+export function DetailsPane({ projectName, cards, topics, sources, progress, live, insights }: { projectName: string | null; cards: number; topics: number; sources: number; progress: Progress | null; live: boolean; insights: TopicInsight[] }) {
   return (
     <aside className="details">
       <div className="hero">
@@ -100,7 +102,7 @@ export function DetailsPane({ cards, topics, sources, progress, live, insights }
             <h4>How it works</h4>
             <div className="steps">
               <div className="step"><span className="n">1</span><span>Point it at a repository, a directory, or a set of docs — it extracts questions from the code and prose it finds.</span></div>
-              <div className="step"><span className="n">2</span><span>{live ? "Recall and reveal the next card due, chosen by the server." : "Pick topics and answer, one card at a time."}</span></div>
+              <div className="step"><span className="n">2</span><span>{live ? "Study what’s due, or pick topics yourself — cards arrive as multiple choice or recall." : "Pick topics and answer, one card at a time."}</span></div>
               <div className="step"><span className="n">3</span><span>{live ? "Rate your recall. Confirmed reviews are saved and scheduled by the server." : "Practice ratings last for this session only."}</span></div>
             </div>
           </div>
@@ -111,6 +113,7 @@ export function DetailsPane({ cards, topics, sources, progress, live, insights }
 
       <div className="dsec">
         <h4>This deck</h4>
+        {projectName && <p className="deck-title">{projectName}</p>}
         <div className="dstats">
           <div className="dstat"><b>{cards}</b><span>Cards</span></div>
           <div className="dstat"><b>{topics}</b><span>Topics</span></div>

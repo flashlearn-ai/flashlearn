@@ -72,6 +72,7 @@ export class CliService implements CliWorkstream {
     const reviews = this.dependencies.createReviewRepository(rootPath);
     const services: FrontendServices = {
       listCards: () => cards.list(),
+      project: async () => ({ name: await this.dependencies.readProjectName(root) }),
       getCard: (id) => cards.get(id),
       nextCard: async () => {
         const allCards = await cards.list();

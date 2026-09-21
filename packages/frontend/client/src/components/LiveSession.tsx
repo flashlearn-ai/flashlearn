@@ -1,17 +1,30 @@
 import { useEffect, useRef, useState } from "react";
-import type { Card, CardPreview, ReviewResult } from "../../../../../contracts/index";
+import type { Card, ReviewResult } from "../../../../../contracts/index";
 import { nextCard, revealCard } from "../lib/live";
-import { submitReview, type ReviewOutcome } from "../lib/review";
-import { dueLabel, SESSION_LIMIT } from "../lib/deck";
+import { submitReview } from "../lib/review";
+import { SESSION_LIMIT, classify, dealCard, type Choice, type Presentation, type SessionCard, type StudyCard } from "../lib/deck";
 import { BotMessage } from "./Chat";
+import { FlashCard, PresentationChoice } from "./Flow";
 
-type Entry = { preview: CardPreview; card?: Card; result?: ReviewResult; outcome?: ReviewOutcome };
-type Action = "next" | "reveal" | "review";
+type Action = "next" | "review";
 
 /** The HTTP contract selects one due card, with no topic/exclusion filter. Never
- * manufacture a client queue or skip a due card by grading it behind the scenes. */
-export function LiveSession({ onReviewed }: { onReviewed: (card: Card, result: ReviewResult) => void }) {
-  const [entries, setEntries] = useState<Entry[]>([]);
+ *  manufacture a client queue or skip a due card by grading it behind the scenes.
+ *
+ *  How a due card is *asked* is a presentation decision, not the schedule's, so
+ *  each one is dealt through `dealSession` exactly like a topic session: some
+ *  arrive as multiple choice, some as recall. Answers come from the deck the
+ *  client already loaded; `GET /api/cards/:id` still fetches a card that became
+ *  due after that load. */
+export function LiveSession({ deck, studyDeck, presentation, onPresentation, onReviewed, onChooseTopics }: {
+  deck: Card[];
+  studyDeck: StudyCard[];
+  presentation: Presentation;
+  onPresentation: (mode: Presentation) => void;
+  onChooseTopics: () => void;
+  onReviewed: (card: Card, result: ReviewResult) => void;
+}) {
+  const [entries, setEntries] = useState<SessionCard[]>([]);
   const [phase, setPhase] = useState<"ready" | "running" | "done">("ready");
   const [busy, setBusy] = useState<Action | null>(null);
   const [error, setError] = useState<{ action: Action; message: string } | null>(null);
@@ -35,36 +48,45 @@ export function LiveSession({ onReviewed }: { onReviewed: (card: Card, result: R
     }
   }
 
+  /** Replaces the card under review, which is always the last one dealt. */
+  function updateActive(change: (entry: SessionCard) => SessionCard) {
+    setEntries((previous) => previous.map((entry, i) => (i === previous.length - 1 ? change(entry) : entry)));
+  }
+
   function loadNext(fresh = false) {
     void run("next", async () => {
       const preview = await nextCard();
-      if (fresh) setEntries([]);
       if (!preview) {
+        if (fresh) setEntries([]);
         setCompletion("No cards are due right now. Your saved reviews determine when they return.");
         setPhase("done");
         return;
       }
-      setEntries((previous) => [...(fresh ? [] : previous), { preview }]);
+      // A card generated since the deck loaded is not in it, so fetch that one.
+      const known = studyDeck.find((entry) => entry.id === preview.id);
+      const study = known ?? classify([...deck, await revealCard(preview.id)]).at(-1)!;
+      // Dealing shuffles, so it runs once here rather than inside the updater:
+      // React invokes updaters twice in development to surface impurity, and
+      // `run()` already serialises this call, so the rendered length is current.
+      const dealt = dealCard(study, deck, presentation, fresh ? 0 : entries.length);
+      setEntries((previous) => (fresh ? [dealt] : [...previous, dealt]));
       setPhase("running");
     });
   }
 
   const active = entries.at(-1);
-  function reveal() {
-    if (!active || active.card) return;
-    void run("reveal", async () => {
-      const card = await revealCard(active.preview.id);
-      setEntries((previous) => previous.map((entry, i) => i === previous.length - 1 ? { ...entry, card } : entry));
-    });
+  function choose(answer: Choice) {
+    if (!active || active.answer || active.grade) return;
+    updateActive((entry) => ({ ...entry, answer }));
   }
 
   function grade(result: ReviewResult) {
-    if (!active?.card || active.outcome?.recorded) return;
+    if (!active || active.outcome?.recorded) return;
     const card = active.card;
     void run("review", async () => {
-      setEntries((previous) => previous.map((entry, i) => i === previous.length - 1 ? { ...entry, result, outcome: undefined } : entry));
-      const outcome = await submitReview(active.preview.id, result);
-      setEntries((previous) => previous.map((entry, i) => i === previous.length - 1 ? { ...entry, result, outcome } : entry));
+      updateActive((entry) => ({ ...entry, grade: result, outcome: null }));
+      const outcome = await submitReview(card.id, result);
+      updateActive((entry) => ({ ...entry, outcome }));
       if (!outcome.recorded) throw new Error("Save not confirmed. Check your connection and retry this rating. If the response was lost, the server may already have saved it.");
       onReviewed(card, result);
       if (entries.length >= SESSION_LIMIT) {
@@ -76,43 +98,41 @@ export function LiveSession({ onReviewed }: { onReviewed: (card: Card, result: R
 
   return <>
     <BotMessage><div className="bubble">
-      <b>Live study</b><p>The server picks your next due card. Recall the answer, reveal it, then rate your recall. Up to {SESSION_LIMIT} reviews per session; saved schedules survive reloads.</p>
+      <b>Live study</b><p>The server picks your next due card. Answer it or recall it, then rate how it went. Up to {SESSION_LIMIT} reviews per session; saved schedules survive reloads.</p>
       <p>Incorrect cards may be due again immediately.</p>
-      {phase === "ready" && <button className="start" disabled={busy !== null} onClick={() => loadNext(true)}>Start due review</button>}
+      {phase === "ready" && <>
+        <PresentationChoice value={presentation} onChange={onPresentation} />
+        <button className="start" disabled={busy !== null} onClick={() => loadNext(true)}>Start due review</button>
+      </>}
     </div></BotMessage>
-    {entries.map((entry, index) => <BotMessage key={`${index}-${entry.preview.id}`}>
-      <div className="qcard">
-        <div className="qmeta">Review {index + 1} · up to {SESSION_LIMIT}</div>
-        <p className="qtext">{entry.preview.question}</p>
-        <p className="qsrc">{entry.preview.source.path}{entry.preview.source.sha !== "unknown" && ` @${entry.preview.source.sha.slice(0, 7)}`}</p>
-        {entry.card && <p className="lone">{entry.card.answer}</p>}
-        {index === entries.length - 1 && phase === "running" && <>
-          {!entry.card && <button className="start" disabled={busy !== null} onClick={reveal}>Reveal answer</button>}
-          {entry.card && !entry.result && <div className="grade">
-            <div className="grade-q">How well did you recall it?</div>
-            <div className="grade-btns">
-              {(["incorrect", "hard", "correct", "easy"] as const).map((result) => <button className="g" key={result} disabled={busy !== null} onClick={() => grade(result)}>{result[0]!.toUpperCase() + result.slice(1)}</button>)}
-            </div>
-          </div>}
-          {entry.outcome?.recorded && <button className="start" disabled={busy !== null} onClick={() => loadNext()}>Next due card</button>}
-        </>}
-        {entry.result && <p className="graded" role="status">{entry.outcome?.recorded
-          ? entry.outcome.due ? `Scheduled · comes back ${dueLabel(entry.outcome.due)}` : "Review saved · no due date returned"
-          : busy === "review" && index === entries.length - 1 ? "Saving review…" : "Save not confirmed"}</p>}
-      </div>
+    {entries.map((entry, index) => <BotMessage key={`${index}-${entry.card.id}`}>
+      <FlashCard
+        entry={entry}
+        index={index}
+        total={SESSION_LIMIT}
+        current={index === entries.length - 1 && phase === "running"}
+        onChoose={choose}
+        onGrade={grade}
+      />
     </BotMessage>)}
-    {busy && busy !== "review" && <BotMessage><p role="status">{busy === "reveal" ? "Revealing answer…" : "Checking due cards…"}</p></BotMessage>}
+    {active?.outcome?.recorded && phase === "running" && (
+      <BotMessage><button className="start" disabled={busy !== null} onClick={() => loadNext()}>Next due card</button></BotMessage>
+    )}
+    {busy === "next" && <BotMessage><p role="status">Checking due cards…</p></BotMessage>}
     {error && <BotMessage><div role="alert" className="bubble">
       <p>{error.message}</p>
-      <button className="start" disabled={busy !== null} onClick={() => {
-        if (error.action === "review" && active?.result) grade(active.result);
-        else if (error.action === "reveal") reveal();
-        else loadNext(phase !== "running");
-      }}>Retry {error.action === "review" ? "save" : error.action === "reveal" ? "reveal" : "due cards"}</button>
+      {/* A failed rating is retried on the card itself, which owns the grade
+        * that failed. Offering a second button here would be two controls for
+        * one action. Fetching the next card has no card to host it. */}
+      {error.action === "next" && (
+        <button className="start" disabled={busy !== null} onClick={() => loadNext(phase !== "running")}>Retry due cards</button>
+      )}
     </div></BotMessage>}
     {phase === "done" && <BotMessage><div className="bubble">
       <p role="status">{completion}</p>
       <button className="start" disabled={busy !== null} onClick={() => loadNext(true)}>Check for due cards</button>
+      {/* Picking the schedule must not be a one-way door. */}
+      <button className="start" disabled={busy !== null} onClick={onChooseTopics}>Choose topics</button>
     </div></BotMessage>}
     <div ref={end} />
   </>;

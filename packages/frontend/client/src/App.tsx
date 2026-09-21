@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { deckSource, isLiveSource } from "./deckSource";
 import { LiveSession } from "./components/LiveSession";
+import { loadProjectName } from "./lib/project";
 import { submitReview } from "./lib/review";
 import { buildTopicInsights, loadReviewEvents, recordReviewEvent } from "./lib/insights";
-import { SESSION_LIMIT, buildSet, classify, dealSession, groupByTopic, runsOf, scoreOf, type Card, type Choice, type ReviewResult, type SessionCard } from "./lib/deck";
+import { SESSION_LIMIT, buildSet, classify, dealSession, groupByTopic, runsOf, scoreOf, type Card, type Choice, type Presentation, type ReviewResult, type SessionCard } from "./lib/deck";
 import { ChatList, Conversation, Rail } from "./components/Teams";
 import { DetailsPane, TopicInsights, type Progress } from "./components/DetailsPane";
 import { BotMessage, Typing, UserMessage } from "./components/Chat";
 import { EmptyDeck, FlashCard, Results, TopicChooser, TopicHandoff, Welcome } from "./components/Flow";
 
 type Phase = "welcome" | "choosing" | "running" | "done";
+/** How a live session was entered. The schedule picks the cards, or the learner
+ *  picks the topics. A demo has no schedule, so it is always `topics`. */
+type Route = "topics" | "due";
 
 export default function App() {
   const live = isLiveSource();
@@ -18,6 +22,9 @@ export default function App() {
   // API is obvious instead of looking like the sample deck was intended.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Null until the server answers, and null forever for a project that declares
+  // no name. The pane shows no title rather than inventing one.
+  const [projectName, setProjectName] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   // Computed from the whole deck, never from a session subset: a subset shares a
   // deeper path prefix, which would group its cards differently to the chooser.
@@ -27,6 +34,13 @@ export default function App() {
   const sources = useMemo(() => new Set(deck.map((c) => c.source.path)).size, [deck]);
   const [reviewEvents, setReviewEvents] = useState(() => live ? loadReviewEvents() : []);
   const insights = useMemo(() => buildTopicInsights(reviewEvents), [reviewEvents]);
+  // Both ways in are always offered, because a first run has cards due too:
+  // hiding the schedule until something has been reviewed makes it reachable
+  // only after a topic session, which is a corner a learner cannot get out of.
+  const [chosenRoute, setChosenRoute] = useState<Route | null>(null);
+  // Variety by default; a learner can force one kind for the whole session.
+  const [presentation, setPresentation] = useState<Presentation>("mixed");
+  const route: Route | null = live ? chosenRoute : "topics";
   const [phase, setPhase] = useState<Phase>("welcome");
   const [cards, setCards] = useState<SessionCard[]>([]);
   const [step, setStep] = useState(0);
@@ -53,13 +67,22 @@ export default function App() {
     return () => { cancelled = true; };
   }, [loadAttempt]);
 
+  // Only a live source has a server to ask. The static demo must issue no API
+  // request at all, and a fixture deck has no project behind it to name.
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    void loadProjectName().then((name) => { if (!cancelled) setProjectName(name); });
+    return () => { cancelled = true; };
+  }, [live]);
+
   useEffect(() => { scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: "smooth" }); }, [step, phase, typing, cards]);
 
   function start(ids: string[], label: string) {
     if (grading.current) return;
     const session = buildSet(studyDeck, ids, SESSION_LIMIT, sessionsRun, cursors.current);
     for (const card of session) cursors.current.set(card.topic.id, (cursors.current.get(card.topic.id) ?? 0) + 1);
-    setCards(dealSession(session, deck));
+    setCards(dealSession(session, deck, presentation));
     setStep(0);
     setLabels(label);
     sessionId.current += 1;
@@ -79,16 +102,17 @@ export default function App() {
     grading.current = true;
     const at = step;
     const startedIn = sessionId.current;
-    // A deck too small to offer a wrong choice shows the answer instead of asking,
-    // so nothing was ever chosen. Grading one is the completion signal: without
-    // this its run stays "in progress" after the session ends and scores zero.
-    setCards((c) => c.map((item, i) => (
-      i === step ? { ...item, grade: g, outcome: null, answer: item.answer ?? item.choices.find((choice) => choice.correct) ?? null } : item
-    )));
+    // A recall card is never chosen from options, so only its rating records
+    // what happened. Recording the correct choice here instead would score it
+    // right however the learner rated it.
+    setCards((c) => c.map((item, i) => (i === step ? { ...item, grade: g, outcome: null } : item)));
     const outcome = await submitReview(entry.card.id, g);
     if (startedIn !== sessionId.current) { grading.current = false; return; }
     setCards((c) => c.map((item, i) => (i === at ? { ...item, outcome } : item)));
     if (!outcome.recorded && !outcome.demo) { grading.current = false; return; }
+    // A confirmed save is history, whichever route asked the question. Demo
+    // ratings are session-only and must not claim a schedule.
+    if (outcome.recorded) reviewed(entry.card, g);
     window.setTimeout(() => {
       setTyping(true);
       window.setTimeout(() => {
@@ -159,16 +183,27 @@ export default function App() {
               <TopicInsights insights={insights} />
             </details>}
 
-            {!loading && loadError === null && !empty && live && <LiveSession onReviewed={reviewed} />}
+            {!loading && loadError === null && !empty && live && route === null && (
+              <BotMessage><div className="bubble">
+                <b>Welcome back, Sara.</b>
+                <p>Study the cards your schedule says are due, or pick topics yourself. Either way your ratings are saved.</p>
+                <div className="actions">
+                  <button className="start" onClick={() => setChosenRoute("due")}>Study what&rsquo;s due</button>
+                  <button className="start" onClick={() => { setChosenRoute("topics"); setPhase("choosing"); }}>Choose topics</button>
+                </div>
+              </div></BotMessage>
+            )}
 
-            {!live && !loading && loadError === null && !empty && phase === "welcome" && (
+            {!loading && loadError === null && !empty && live && route === "due" && <LiveSession deck={deck} studyDeck={studyDeck} presentation={presentation} onPresentation={setPresentation} onReviewed={reviewed} onChooseTopics={() => { setChosenRoute("topics"); setPhase("choosing"); }} />}
+
+            {route === "topics" && !loading && loadError === null && !empty && phase === "welcome" && (
               <BotMessage><Welcome cards={deck.length} topics={groups.length} onStart={() => setPhase("choosing")} /></BotMessage>
             )}
 
-            {!live && !loading && loadError === null && !empty && phase !== "welcome" && (
+            {route === "topics" && !loading && loadError === null && !empty && phase !== "welcome" && (
               <>
                 <BotMessage><span className="bubble">Welcome back, Sara. Pick the topics you want to study.</span></BotMessage>
-                {phase === "choosing" && <BotMessage><TopicChooser groups={groups} insights={insights} total={deck.length} onStart={start} /></BotMessage>}
+                {phase === "choosing" && <BotMessage><TopicChooser groups={groups} insights={insights} total={deck.length} projectName={projectName} presentation={presentation} onPresentation={setPresentation} onStart={start} /></BotMessage>}
                 {(phase === "running" || phase === "done") && (
                   <>
                     <UserMessage text={labels} />
@@ -195,7 +230,7 @@ export default function App() {
             )}
           </div>
         </Conversation>
-        <DetailsPane cards={deck.length} topics={groups.length} sources={sources} progress={progress} live={live} insights={insights} />
+        <DetailsPane projectName={projectName} cards={deck.length} topics={groups.length} sources={sources} progress={progress} live={live} insights={insights} />
       </div>
     </div>
   );

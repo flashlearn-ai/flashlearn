@@ -3,14 +3,14 @@
 This repository produces two release artifacts from the five private workspaces:
 
 - `.release/flashlearn.tgz`: self-contained `@flashlearnai/cli` package with the `flashlearn` executable/server plus the live React client.
-- `.release/site/`: landing page, tool documentation, and the sample-only web demo.
+- `.release/site/`: landing page, tool documentation, and, only when built with `--demo`, the sample-only web demo.
 
 ## Local verification
 
 ```bash
 npm ci
 npm run release:check
-npm run site:build
+npm run site:build -- --demo
 npm exec --workspace @flashlearn/frontend -- playwright install --with-deps chromium
 npm run test:browser:live --workspace @flashlearn/frontend
 npm run site:test
@@ -27,16 +27,16 @@ The preview is `http://127.0.0.1:4182/flashlearn/`. It deliberately includes the
 
 | Build | Output | Deck and reviews |
 | --- | --- | --- |
-| `npm run build --workspace @flashlearn/frontend` | `packages/frontend/client/dist/` | Server-selected due cards, reveal-and-rate, persisted schedules, up to 12 acknowledged reviews |
+| `npm run build --workspace @flashlearn/frontend` | `packages/frontend/client/dist/` | Two entry routes (server-selected due cards, or a client-dealt topic session), mixed choice/recall presentation, persisted schedules, up to 12 acknowledged reviews |
 | `npm run demo --workspace @flashlearn/frontend` | `packages/frontend/client/dist-demo/` | Public sample multiple choice, topic-balanced sessions up to 12 cards, session-only reviews, no API calls |
 
 Official builds explicitly select their source even when `VITE_DECK_SOURCE` is set in the shell. Development source overrides remain available in ordinary Vite dev mode. Building one artifact never overwrites the other. `node scripts/test-build-modes.mjs` verifies both orders and hostile environment overrides.
 
-Live study uses `GET /api/cards` for counts, `GET /api/cards/next` for selection, and `GET /api/cards/:id` for answer reveal. There is no live topic filter. All four ratings post to `POST /api/review`; the UI waits for confirmation and an explicit **Next due card** click before advancing. Pending saves say **Saving review…**. Failed or malformed acknowledgements block advancement/new sessions and allow retry of the same rating; a lost response may follow a successful save, and retry can duplicate it because the contract has no idempotency key. Reload resets the transcript but uses persisted server schedules; future cards remain excluded, a next-card `404` means none are due, and immediately due incorrect-card repeats count toward the cap.
+Live study uses `GET /api/cards` for counts, `GET /api/project` for the deck's project name when one is declared, `GET /api/cards/next` for selection, and `GET /api/cards/:id` for a card that became due after the deck loaded. Topic sessions are dealt client-side and are early reviews, never the due queue; the next-card endpoint has no topic filter. All four ratings post to `POST /api/review`; the UI waits for confirmation and an explicit **Next due card** click before advancing. Pending saves say **Saving review…**. Failed or malformed acknowledgements block advancement/new sessions and allow retry of the same rating; a lost response may follow a successful save, and retry can duplicate it because the contract has no idempotency key. Reload resets the transcript but uses persisted server schedules; future cards remain excluded, a next-card `404` means none are due, and immediately due incorrect-card repeats count toward the cap.
 
 ## Pages site
 
-`site/` contains the static hero and docs. `site:build` copies these templates, stamps the version from `release/package.json`, and copies **only** the demo build under `/demo/`. Assets are relative, and `/docs/` and `/demo/` each have an index document so reloads work without a server-side router.
+`site/` contains the static hero and docs. `site:build` copies these templates and stamps the version from `release/package.json`. The sample demo is opt-in: `npm run site:build -- --demo` also builds it and copies **only** that build under `/demo/`. Pages deployment and release-artifact CI explicitly enable `--demo`, publishing the hero, docs, and sample demo at `https://flashlearn-ai.github.io/flashlearn/demo/`. A local build without the flag still omits the demo. Demo-only markup in the templates is fenced with `<!--DEMO-->`, and its replacement with `<!--NODEMO-->`, so links and artifacts are decided together and the site never publishes a link to a page it did not build. Assets are relative, and `/docs/` and `/demo/` each have an index document so reloads work without a server-side router.
 
 The hero emphasizes three stages:
 
