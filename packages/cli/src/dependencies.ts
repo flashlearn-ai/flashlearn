@@ -22,11 +22,22 @@ export type GenerateOptions = {
   subpath?: string;
   maxFiles?: number;
   provider?: GenerationProvider;
+  copilotModel?: string;
+  onProgress?: (progress: GenerationProgress) => void;
+};
+
+export const MAX_GENERATED_CARDS = 100;
+export type GenerationProgress = {
+  phase: "scanning" | "selecting" | "generating" | "saving" | "done";
+  completed: number;
+  total: number;
+  cards: number;
+  message?: string;
 };
 
 export type GenerationProvider =
   | { kind: "anthropic"; apiKey: string; model: string }
-  | { kind: "copilot" }
+  | { kind: "copilot"; model?: string }
   | { kind: "deterministic" }
   | { kind: "endpoint"; url: string; model: string; apiKey?: string; authHeader?: string };
 

@@ -325,6 +325,23 @@ test("generate offers a detected Copilot CLI and passes the selection", async ()
   assert.match(output.stderr.join("\n"), /Using GitHub Copilot CLI/);
 });
 
+test("explicit Copilot flags select auto or the requested model without prompting", async () => {
+  for (const args of [["--copilot"], ["--copilot-model", "custom-model"]]) {
+    const cli: CliWorkstream = new RecordingCli();
+    cli.generate = async (_root, options) => {
+      assert.deepEqual(options?.provider, { kind: "copilot", model: args[1] ?? "auto" });
+      return [];
+    };
+    assert.equal(await runCli(["generate", ...args], cli, {
+      ...capture().io, detectCopilot: async () => true,
+      confirm: async () => { assert.fail("explicit opt-in should not prompt"); },
+    }), 0);
+  }
+  const output = capture();
+  assert.equal(await runCli(["generate", "--copilot"], new RecordingCli(), { ...output.io, detectCopilot: async () => false }), 1);
+  assert.match(output.stderr.join("\n"), /unavailable on PATH/);
+});
+
 test("generate can configure OpenAI with an in-memory API key", async () => {
   const output = capture();
   const cli = new RecordingCli();

@@ -132,6 +132,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - Keep external capabilities behind the CLI-owned interfaces in `src/dependencies.ts` so orchestration stays testable.
 - Use `projectRoot()` and `flashlearnRoot()` from `src/paths.ts` for project paths; do not reconstruct `.flashlearn/` paths elsewhere in the CLI.
 - CLI selects paths and composes services; extraction owns actual repository traversal.
+- CLI generation uses extraction's public scan/validation APIs, caps each run at 100 accepted/persisted cards, and emits progress on stderr. Copilot defaults to `auto` fast routing; `--copilot` or `--copilot-model <name>` explicitly opts in. Classify/filter source locally, reserve README/doc batches, group related code, and apply maxFiles after ranking. All AI providers use the shared curriculum prompt/evidence gate with eight concurrent four-file batches, bounded excerpts/timeouts, and no filler. Rank for foundations, reject incomplete/trivial answers, heuristically deduplicate, and limit source dominance; evidence matching is not semantic proof. The cap never prunes stored cards. Benchmark tooling in `packages/cli/scripts/benchmark-generation.mjs` uses a temporary clone and optional `--keep` for evaluation.
 - CLI starts the server; frontend owns HTTP routing and browser behavior.
 - Do not move scheduling, extraction, persistence, or UI logic into the CLI.
 

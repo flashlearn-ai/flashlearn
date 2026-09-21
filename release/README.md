@@ -51,6 +51,10 @@ guidance. Positional directories still work for `init [directory]`,
 
 ## Empty decks and scoped generation
 
+Generation displays progress and elapsed time on stderr and saves at most **100 new or updated cards per run**. Existing cards are retained. Use `flashlearn generate --copilot` to explicitly select Copilot (`auto` with fast routing), or `--copilot-model <name>` to select a model; either overrides endpoint environment configuration. Interactive Copilot acceptance uses `auto` without another prompt.
+
+Generation first excludes dependency/license copies, hidden agent tooling, tests and process docs. It prioritizes README and linked architecture/glossary docs, then groups important code by subsystem. All AI providers use up to eight parallel batches of four files, 7,000-character excerpts, and 45-second timeouts. AI questions cite evidence from code or documentation and are ranked for understanding, diversity and reduced redundancy. Documentation claims are labeled, including aspirational design caveats. Evidence matching is not a factual correctness guarantee. Failed/empty batches are reported; no deterministic filler pads the deck to 100. Offline mode provides labeled section/doc-comment recall. Duration still depends on repository size and provider latency.
+
 If `start` finds an empty deck, an interactive terminal asks whether to generate
 cards first (default no), noting that a configured AI endpoint may be used.
 Non-interactive runs exit 1 with guidance unless `start --yes` (or `-y`) approves
@@ -64,7 +68,7 @@ flashlearn generate --project /path/to/repository --subpath src --max-files 20
 
 `--subpath` is a repository-relative directory, not an individual file; absolute
 paths and `..` segments are invalid. `--max-files` is a positive safe integer
-limiting supported files scanned, not cards. Both flags belong to `generate`
+limiting eligible files after importance ranking, not filesystem traversal or cards. Both flags belong to `generate`
 only; run it before `start` to scope first-run generation. By default generation
 scans the whole project with no file limit. Attribution stays relative to the
 project root.

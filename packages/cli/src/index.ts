@@ -4,6 +4,7 @@ import { createProductionDependencies } from "./production.js";
 import { CliService } from "./workstream.js";
 import { confirm, prompt } from "./confirm.js";
 import { detectCopilot } from "./copilot.js";
+import { generationProgress } from "./progress.js";
 
 const dependencies = createProductionDependencies();
 const service = new CliService(dependencies);
@@ -14,5 +15,6 @@ process.exitCode = await runCli(process.argv.slice(2), service, {
   confirm,
   prompt,
   detectCopilot,
+  progress: generationProgress((value) => process.stderr.write(value), Boolean(process.stderr.isTTY)),
   endpointConfigured: Boolean(process.env.FLASHLEARN_ENDPOINT_URL?.trim() && process.env.FLASHLEARN_ENDPOINT_MODEL?.trim()),
 });

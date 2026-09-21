@@ -1,0 +1,64 @@
+import { deterministicExtractor, endpointConfigFromEnv, ExtractionService, type SourceDocument } from "@flashlearn/extraction";
+import type { GeneratedCard } from "../../../contracts/index.js";
+import { MAX_GENERATED_CARDS, type GenerateOptions } from "./dependencies.js";
+import { copilotBatch, inferenceRunner, type runCopilot } from "./providers.js";
+import { classifySources, isDocumentation, selectBatches, sourceExcerpt, subsystem } from "./source-selection.js";
+import { selectCards, type Candidate } from "./card-quality.js";
+
+/** Source traversal/attribution remain owned by extraction; CLI plans bounded inference. */
+export async function generateBounded(root: string, options: GenerateOptions = {}, run?: typeof runCopilot): Promise<GeneratedCard[]> {
+  const { onProgress } = options;
+  onProgress?.({ phase: "scanning", completed: 0, total: 0, cards: 0 });
+  // Apply maxFiles after relevance/importance selection, so dependency docs cannot
+  // consume the file budget before the README. subpath still strictly scopes IO.
+  const documents = await new ExtractionService().scanRepository(root, { subpath: options.subpath });
+  const classification = classifySources(documents);
+  const ranked = classification.ranked.slice(0, options.maxFiles);
+  onProgress?.({ phase: "selecting", completed: documents.length, total: documents.length, cards: 0,
+    message: `Classified ${documents.length} files: ${classification.excluded} excluded; ${ranked.length} eligible within the file budget. README: ${ranked.includes(classification.readme!) ? classification.readme!.path : "none in scope"}.` });
+  const config = endpointConfigFromEnv();
+  const provider = options.provider ?? (config ? { kind: "endpoint" as const, ...config } : { kind: "deterministic" as const });
+  if (provider.kind === "deterministic") return deterministicCards(ranked, options);
+
+  const batches = selectBatches(ranked);
+  const context = classification.readme && ranked.includes(classification.readme) ? sourceExcerpt(classification.readme, 5000) : "No README in the selected scope.";
+  const runner = run ?? inferenceRunner(provider);
+  let completed = 0;
+  let accepted = 0;
+  onProgress?.({ phase: "generating", completed, total: batches.length, cards: 0,
+    message: `${provider.kind} ${provider.model ?? "auto"}: ${batches.flat().length} important files (${batches.flat().filter(isDocumentation).length} docs), ${batches.length} parallel batches. No filler cards.` });
+  const results = await Promise.all(batches.map(async (batch) => {
+    const focus = batch.every(isDocumentation) ? "architecture, vocabulary, component relationships and end-to-end lifecycle; distinguish documented design from implementation" : `${subsystem(batch[0]!.path)}: mechanisms, interactions and failure behavior`;
+    const candidates = await copilotBatch(batch, provider.model ?? "auto", 45_000, runner, context, focus);
+    completed++;
+    accepted += candidates.length;
+    onProgress?.({ phase: "generating", completed, total: batches.length, cards: Math.min(accepted, MAX_GENERATED_CARDS) });
+    return candidates;
+  }));
+  const selected = selectCards(results.flat(), MAX_GENERATED_CARDS);
+  onProgress?.({ phase: "generating", completed, total: batches.length, cards: selected.cards.length,
+    message: `${selected.cards.length} grounded AI cards selected; ${selected.rejected} candidates removed by quality, redundancy, diversity or cap checks. ${results.filter((batch) => !batch.length).length} batches yielded no evidence-backed cards (empty, failure, timeout or invalid output). No deterministic filler.` });
+  return selected.cards;
+}
+
+async function deterministicCards(documents: SourceDocument[], options: GenerateOptions): Promise<GeneratedCard[]> {
+  const extractor = deterministicExtractor();
+  const candidates: Candidate[] = [];
+  let completed = 0;
+  for (let i = 0; i < Math.min(documents.length, 80); i += 8) {
+    const wave = documents.slice(i, Math.min(i + 8, 80));
+    candidates.push(...(await Promise.all(wave.map((document) => extractor.extract(document)))).flat());
+    completed += wave.length;
+    options.onProgress?.({ phase: "generating", completed, total: Math.min(documents.length, 80), cards: selectCards(candidates).cards.length });
+  }
+  // Deterministic doc questions remain section recall, clearly labeled as such.
+  // Avoid vague headings and incomplete answers rather than inventing meaning.
+  for (const card of candidates) {
+    const heading = /^What does "(.+)" cover\?$/.exec(card.question)?.[1];
+    if (heading) card.question = `According to ${card.source.path}, what is explained about ${heading}?`;
+  }
+  const selected = selectCards(candidates);
+  options.onProgress?.({ phase: "generating", completed, total: Math.min(documents.length, 80), cards: selected.cards.length,
+    message: `Deterministic section/doc-comment recall: ${selected.cards.length} cards; ${selected.rejected} rejected. AI synthesis is disabled.` });
+  return selected.cards;
+}
