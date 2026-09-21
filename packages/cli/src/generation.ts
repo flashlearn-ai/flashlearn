@@ -1,12 +1,13 @@
 import { deterministicExtractor, endpointConfigFromEnv, ExtractionService, type SourceDocument } from "@flashlearn/extraction";
 import type { GeneratedCard } from "../../../contracts/index.js";
-import { MAX_GENERATED_CARDS, type GenerateOptions } from "./dependencies.js";
+import { MAX_GENERATED_CARDS, type GenerateOptions, type StudyGeneratedCard } from "./dependencies.js";
+import { categorizeCards } from "./categories.js";
 import { copilotBatch, inferenceRunner, type runCopilot } from "./providers.js";
 import { classifySources, isDocumentation, selectBatches, sourceExcerpt, subsystem } from "./source-selection.js";
 import { selectCards, type Candidate } from "./card-quality.js";
 
 /** Source traversal/attribution remain owned by extraction; CLI plans bounded inference. */
-export async function generateBounded(root: string, options: GenerateOptions = {}, run?: typeof runCopilot): Promise<GeneratedCard[]> {
+export async function generateBounded(root: string, options: GenerateOptions = {}, run?: typeof runCopilot): Promise<StudyGeneratedCard[]> {
   const { onProgress } = options;
   onProgress?.({ phase: "scanning", completed: 0, total: 0, cards: 0 });
   // Apply maxFiles after relevance/importance selection, so dependency docs cannot
@@ -29,7 +30,7 @@ export async function generateBounded(root: string, options: GenerateOptions = {
     message: `${provider.kind} ${provider.model ?? "auto"}: ${batches.flat().length} important files (${batches.flat().filter(isDocumentation).length} docs), ${batches.length} parallel batches. No filler cards.` });
   const results = await Promise.all(batches.map(async (batch) => {
     const focus = batch.every(isDocumentation) ? "architecture, vocabulary, component relationships and end-to-end lifecycle; distinguish documented design from implementation" : `${subsystem(batch[0]!.path)}: mechanisms, interactions and failure behavior`;
-    const candidates = await copilotBatch(batch, provider.model ?? "auto", 45_000, runner, context, focus);
+    const candidates = await copilotBatch(batch, provider.model ?? "auto", 32_000, runner, context, focus);
     completed++;
     accepted += candidates.length;
     onProgress?.({ phase: "generating", completed, total: batches.length, cards: Math.min(accepted, MAX_GENERATED_CARDS) });
@@ -38,7 +39,15 @@ export async function generateBounded(root: string, options: GenerateOptions = {
   const selected = selectCards(results.flat(), MAX_GENERATED_CARDS);
   onProgress?.({ phase: "generating", completed, total: batches.length, cards: selected.cards.length,
     message: `${selected.cards.length} grounded AI cards selected; ${selected.rejected} candidates removed by quality, redundancy, diversity or cap checks. ${results.filter((batch) => !batch.length).length} batches yielded no evidence-backed cards (empty, failure, timeout or invalid output). No deterministic filler.` });
-  return selected.cards;
+  if (!selected.cards.length) return [];
+  onProgress?.({ phase: "categorizing", completed: 0, total: selected.cards.length, cards: selected.cards.length,
+    message: "Asking AI to organize learning categories (minimum five cards each)..." });
+  const categorized = await categorizeCards(selected.cards, runner, provider.model ?? "auto");
+  const counts = new Map<string, number>();
+  for (const card of categorized) counts.set(card.tags![0]!, (counts.get(card.tags![0]!) ?? 0) + 1);
+  onProgress?.({ phase: "categorizing", completed: categorized.length, total: categorized.length, cards: categorized.length,
+    message: `Learning categories: ${[...counts].map(([name, count]) => `${name} (${count})`).join("; ")}` });
+  return categorized;
 }
 
 async function deterministicCards(documents: SourceDocument[], options: GenerateOptions): Promise<GeneratedCard[]> {
