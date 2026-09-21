@@ -40,6 +40,8 @@ Scripts under `scripts/` are covered by `test/*.test.mjs` at the repository root
 
 Run the source CLI from the repository root with `npm run cli -- <command>`. The runner uses input/output fingerprints to reuse valid sibling builds and rebuild changed or missing outputs, including the live frontend bundle. Cache metadata lives in `node_modules/.cache/flashlearn/`. It uses the repository root as its working directory. Use `--project` to target another directory and `npm --silent run cli -- project status -o json` for structured stdout; build logs and project/progress diagnostics belong on stderr.
 
+Pin external GitHub Actions to full commit SHAs with a release-version comment. JavaScript actions use Node 24; check composite actions' nested dependencies too when updating pins. The action runtime is separate from the project Node version selected by `setup-node`.
+
 GitHub CI exposes four independent statuses:
 
 - `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`. It compares against the merge base, so unrelated packages that land on `main` after a branch is cut do not count against it. The job needs full history (`fetch-depth: 0`).
