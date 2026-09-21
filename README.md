@@ -4,13 +4,31 @@
 
 <h1 align="center">FlashLearn</h1>
 
-<p align="center"><a href="https://flashlearn-ai.github.io/flashlearn/">Visit the FlashLearn website</a></p>
+<p align="center">
+  <a href="https://www.npmjs.com/package/@flashlearnai/cli"><img src="https://img.shields.io/npm/v/%40flashlearnai%2Fcli?label=npm" alt="npm version"></a>
+  <a href="https://github.com/flashlearn-ai/flashlearn/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/flashlearn-ai/flashlearn/actions/workflows/ci.yml/badge.svg?branch=main&amp;event=push" alt="CI checks on main"></a>
+  <a href="https://github.com/flashlearn-ai/flashlearn/actions/workflows/pages.yml?query=branch%3Amain"><img src="https://github.com/flashlearn-ai/flashlearn/actions/workflows/pages.yml/badge.svg?branch=main&amp;event=push" alt="Docs build and deployment on main"></a>
+</p>
+
+<p align="center"><a href="https://flashlearn-ai.github.io/flashlearn/">Website</a> · <a href="https://flashlearn-ai.github.io/flashlearn/demo/">Try the static demo</a></p>
 
 <p align="center"><strong>Agentic AI for compounding learning velocity.</strong></p>
 
 <p align="center">Onboard effectively to unfamiliar code repositories by turning their source into attributed study cards and a local spaced-repetition experience.</p>
 
 <p align="center"><strong>Local-first:</strong> cards and review state are stored in your project's <code>.flashlearn/</code> directory. Offline extraction stays local; configured AI endpoints receive source code and have their own access controls and retention policies.</p>
+
+## Getting started
+
+Requires Node.js 22.14+ and Git for commit attribution.
+
+```bash
+npm install --global @flashlearnai/cli
+flashlearn generate --project /path/to/your/repo
+flashlearn start --project /path/to/your/repo
+```
+
+Open **http://localhost:4173** to study. Generation initializes storage automatically. Run `flashlearn --help` for options, or [try the web demo](https://flashlearn-ai.github.io/flashlearn/demo/).
 
 ## Feature Map
 
@@ -203,6 +221,10 @@ Contract ownership is:
 ## Development
 
 For packaging, publishing, and website deployment, see the [npm and GitHub Pages release runbook](docs/release-readiness.md). `npm run release:check` builds and tests the installable CLI tarball. `npm run site:build` builds the landing page and docs; add `-- --demo` to include the sample demo, which is otherwise not published. `npm run site:preview` serves them locally at `http://127.0.0.1:4182/flashlearn/`. Publishing and deployment require the owner setup described in the runbook.
+
+The public npm package is [`@flashlearnai/cli`](https://www.npmjs.com/package/@flashlearnai/cli) and installs the `flashlearn` executable. Install with `npm install --global @flashlearnai/cli` or run `npx @flashlearnai/cli --help`.
+
+Once npm trusted publishing is configured, publishing a GitHub Release triggers the OIDC npm workflow. Its tag must match `release/package.json` on a commit in `main`; see the runbook for stable/prerelease selection and first-publication setup.
 
 ```bash
 npm install

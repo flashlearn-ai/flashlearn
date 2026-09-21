@@ -23,7 +23,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run site:build
+      - run: npm run site:build -- --demo
         env:
           VITE_DECK_SOURCE: https://invalid.example/must-not-be-used
       - run: npm exec --workspace @flashlearn/frontend -- playwright install --with-deps chromium

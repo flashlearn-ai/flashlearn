@@ -25,8 +25,8 @@ async function buildSite(args = []) {
   };
 }
 
-/* The sample demo is a fixture deck, so publishing it is opt-in. A default
- * build is what GitHub Pages deploys, and it must carry no sample content. */
+/* The sample demo is a fixture deck, so publishing it is opt-in. Local default
+ * builds omit it; Pages and artifact CI explicitly pass --demo. */
 test("the default site build publishes no sample demo", async () => {
   const site = await buildSite();
   assert.equal(site.demo, false, "a default build must not emit demo/");

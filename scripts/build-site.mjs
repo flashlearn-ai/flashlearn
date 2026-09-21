@@ -5,8 +5,8 @@ import { ROOT, npmCommand, releaseManifest, run } from "./release-lib.mjs";
 const manifest = await releaseManifest();
 
 /* The sample demo runs on a fixture deck, so it is opt-in rather than part of
- * every build: `npm run site:build -- --demo`. Pages deploys a default build,
- * which therefore publishes no sample content. Demo-only markup is fenced with
+ * every build: `npm run site:build -- --demo`. Pages and artifact CI explicitly
+ * enable it; local default builds omit it. Demo-only markup is fenced with
  * `<!--DEMO-->` so the artifact and the links to it are decided together and
  * cannot drift into a published link to a page that was never built. The
  * `<!--NODEMO-->` counterpart carries the markup that replaces it, so the hero
