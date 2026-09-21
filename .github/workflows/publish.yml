@@ -15,7 +15,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: npm-publish
+    environment: prod
     permissions:
       contents: read
       id-token: write

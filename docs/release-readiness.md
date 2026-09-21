@@ -110,15 +110,15 @@ Configure npm trusted publishing for:
 
 - GitHub organization: `flashlearn-ai`
 - Repository: `flashlearn`
-- Workflow filename: `npm-release.yml`
-- Environment: `npm-publish`
+- Workflow filename: `publish.yml`
+- Environment: `prod`
 - Allowed action: direct `npm publish`
 
 Current npm OIDC support requires npm 11.5.1+ and Node 22.14+. The workflow pins npm 11.12.1 and uses Node 24 on a GitHub-hosted runner. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers).
 
-After the owner-authenticated first publication, configure the trusted publisher on `@flashlearnai/cli` and the GitHub `npm-publish` environment. No registry credentials or account changes are performed by these scripts.
+After the owner-authenticated first publication, configure the trusted publisher on `@flashlearnai/cli` and the GitHub `prod` environment. No registry credentials or account changes are performed by these scripts.
 
-In npm, open the package **Settings → Trusted publishing**, choose GitHub Actions, and enter the values above. The npm organization (`flashlearnai`) and GitHub organization (`flashlearn-ai`) are different names. In GitHub **Settings → Environments**, create `npm-publish`; if deployment branch/tag restrictions are enabled, allow version tags such as `v*`, since release jobs run against tags. Optional required reviewers must approve the deployment before publishing starts. No `NPM_TOKEN` or `NODE_AUTH_TOKEN` secret is needed; `id-token: write` enables npm's OIDC exchange.
+In npm, open the package **Settings → Trusted publishing**, choose GitHub Actions, and enter the values above. The npm organization (`flashlearnai`) and GitHub organization (`flashlearn-ai`) are different names. In GitHub **Settings → Environments**, use `prod`; if deployment branch/tag restrictions are enabled, allow version tags such as `v*`, since release jobs run against tags. Optional required reviewers must approve the deployment before publishing starts. No `NPM_TOKEN` or `NODE_AUTH_TOKEN` secret is needed; `id-token: write` enables npm's OIDC exchange.
 
 ## Release workflow
 
@@ -132,7 +132,7 @@ In npm, open the package **Settings → Trusted publishing**, choose GitHub Acti
 
 If publication or attachment fails, use **Actions → npm release → Re-run all jobs**. An existing npm version is skipped only when its registry integrity matches the freshly tested tarball exactly; differing bytes fail and require a new version. A rerun does not change dist-tags or add provenance to an existing manual publication. To avoid republishing the bootstrap release, start automated releases with a new version such as `0.1.1`. A GitHub Release becomes visible before npm publication completes; check the workflow result before announcing availability.
 
-The workflow requires the `npm-publish` environment and npm trusted publisher to be configured by the owner. No long-lived npm token is used. Provenance is verified on the registry after a real release; it cannot be proven by a local dry run.
+The workflow requires the `prod` environment and npm trusted publisher to be configured by the owner. No long-lived npm token is used. Provenance is verified on the registry after a real release; it cannot be proven by a local dry run.
 
 Published versions are immutable. Repair a bad release with a new version or a deliberate dist-tag rollback; never try to overwrite a version.
 
