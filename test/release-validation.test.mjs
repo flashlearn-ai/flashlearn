@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { validateReleaseEvent, validateTestedArtifact, matchesPublishedArtifact, publishedVersion } from "../scripts/release-validation.mjs";
+import { validateReleaseEvent, validateTestedArtifact, matchesPublishedArtifact, publishedVersion, waitForPublishedArtifact, RegistryLookupError } from "../scripts/release-validation.mjs";
 
 const manifest = { name: "@flashlearnai/cli", version: "0.1.0" };
 const event = { action: "published", release: { tag_name: "v0.1.0", draft: false, prerelease: false } };
@@ -50,4 +50,61 @@ test("registry lookup distinguishes absent versions from network/auth failures",
   }
   await assert.rejects(publishedVersion(manifest, async () => { throw new Error("offline"); }), /offline/);
   assert.deepEqual(await publishedVersion(manifest, async () => Response.json(manifest)), manifest);
+});
+
+function pollingClock(lookup, timeoutMs = 300_000) {
+  let time = 0;
+  const messages = [];
+  const sleeps = [];
+  return {
+    options: { lookup, timeoutMs, now: () => time, sleep: async (ms) => { sleeps.push(ms); time += ms; }, log: (message) => messages.push(message) },
+    messages, sleeps, elapsed: () => time,
+  };
+}
+
+test("publication waits through minutes of 404s rather than failing after 30 seconds", async () => {
+  let attempts = 0;
+  const clock = pollingClock(async () => ++attempts < 14 ? null : { ...manifest, dist: { integrity: "sha512-tested" } });
+  await waitForPublishedArtifact(manifest, "sha512-tested", clock.options);
+  assert.equal(attempts, 14);
+  assert.equal(clock.elapsed(), 130_000);
+  assert.match(clock.messages[0], /Waiting up to 300s/);
+  assert.match(clock.messages.at(-1), /120s elapsed/);
+});
+
+test("verification retries transient HTTP and network failures without republishing", async () => {
+  const failures = [408, 429, 500, 503, "network", "body"];
+  const clock = pollingClock(async () => {
+    const failure = failures.shift();
+    return publishedVersion(manifest, async () => {
+      if (failure === "network") throw new Error("connection reset");
+      if (failure === "body") return new Response("invalid json");
+      return failure ? new Response(null, { status: failure }) : Response.json({ ...manifest, dist: { integrity: "sha512-tested" } });
+    });
+  });
+  await waitForPublishedArtifact(manifest, "sha512-tested", clock.options);
+  assert.equal(clock.sleeps.length, 6);
+});
+
+test("auth failures, unexpected errors and artifact mismatches fail immediately", async () => {
+  for (const lookup of [
+    () => publishedVersion(manifest, async () => new Response(null, { status: 401 })),
+    () => publishedVersion(manifest, async () => new Response(null, { status: 403 })),
+    async () => { throw new Error("bug"); },
+    async () => ({ ...manifest, dist: { integrity: "sha512-wrong" } }),
+  ]) {
+    const clock = pollingClock(lookup);
+    await assert.rejects(waitForPublishedArtifact(manifest, "sha512-tested", clock.options), /HTTP 401|HTTP 403|bug|different bytes/);
+    assert.deepEqual(clock.sleeps, []);
+  }
+});
+
+test("deadline bounds sleeps and remaining lookup budget, with actionable timeout", async () => {
+  const budgets = [];
+  const clock = pollingClock(async (_manifest, budget) => { budgets.push(budget); return null; }, 25_000);
+  await assert.rejects(waitForPublishedArtifact(manifest, "sha512-tested", clock.options), /npm accepted publication.*within 25s/);
+  assert.deepEqual(budgets, [25_000, 15_000, 5_000]);
+  assert.deepEqual(clock.sleeps, [10_000, 10_000, 5_000]);
+  const outage = pollingClock(async () => { throw new RegistryLookupError("registry unavailable", true); }, 1);
+  await assert.rejects(waitForPublishedArtifact(manifest, "sha512-tested", outage.options), /registry unavailable/);
 });
