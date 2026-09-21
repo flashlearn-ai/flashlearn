@@ -10,7 +10,7 @@
   <a href="https://github.com/flashlearn-ai/flashlearn/actions/workflows/pages.yml?query=branch%3Amain"><img src="https://github.com/flashlearn-ai/flashlearn/actions/workflows/pages.yml/badge.svg?branch=main&amp;event=push" alt="Docs build and deployment on main"></a>
 </p>
 
-<p align="center"><a href="https://flashlearn-ai.github.io/flashlearn/">Visit the FlashLearn website</a></p>
+<p align="center"><a href="https://flashlearn-ai.github.io/flashlearn/">Website</a> · <a href="https://flashlearn-ai.github.io/flashlearn/demo/">Try the static demo</a></p>
 
 <p align="center"><strong>Agentic AI for compounding learning velocity.</strong></p>
 
