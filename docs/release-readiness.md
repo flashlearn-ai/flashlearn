@@ -117,7 +117,15 @@ In npm, open the package **Settings → Trusted publishing**, choose GitHub Acti
 6. It verifies both artifact receipts and publishes the exact `.tgz` using OIDC with provenance: prereleases use `next`, stable versions use `latest`. It verifies the registry's SHA-512 integrity afterward.
 7. The final job attaches `flashlearn.tgz` and `artifact.json` to the existing GitHub Release. The workflow does not create another release.
 
-If publication or attachment fails, use **Actions → npm release → Re-run all jobs**. An existing npm version is skipped only when its registry integrity matches the freshly tested tarball exactly; differing bytes fail and require a new version. A rerun does not change dist-tags or add provenance to an existing manual publication. To avoid republishing the bootstrap release, start automated releases with a new version such as `0.1.1`. A GitHub Release becomes visible before npm publication completes; check the workflow result before announcing availability.
+If publication or attachment fails, use **Actions → npm release → Re-run failed jobs** (or **Re-run all jobs**) on the original run. Alternatively, choose **Run workflow**, select `main`, and enter the existing published release tag (for example `v0.2.0`). From the CLI:
+
+```bash
+gh workflow run publish.yml --ref main -f tag=v0.2.0
+```
+
+Manual runs fetch the release from GitHub, check out its tag, and run the same version/prerelease/main-ancestry and artifact checks as the release trigger. They can retry tags that predate manual dispatch because the workflow resolves metadata before checking out the target tag. The tag must have a published, non-draft GitHub Release. If `prod` has deployment restrictions, allow the dispatch branch (`main`) as well as release tags; checkout does not change the workflow's triggering ref.
+
+An existing npm version is skipped only when its registry integrity matches the freshly tested tarball exactly; differing bytes fail and require a new version. A retry does not change dist-tags or add provenance to an existing manual publication. The final job uploads the tested tarball and receipt to the selected release. A GitHub Release becomes visible before npm publication completes; check the workflow result before announcing availability.
 
 The workflow requires the `prod` environment and npm trusted publisher to be configured by the owner. No long-lived npm token is used. Provenance is verified on the registry after a real release; it cannot be proven by a local dry run.
 
