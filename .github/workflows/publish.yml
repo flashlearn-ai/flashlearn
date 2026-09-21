@@ -42,43 +42,48 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: prod
+    defaults:
+      run:
+        working-directory: release-source
     permissions:
       contents: read
       id-token: write
     steps:
+      # Keep publishing tooling current even when retrying an older source tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-tools
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: refs/tags/${{ needs.resolve-release.outputs.tag }}
+          path: release-source
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       - run: npm install --global npm@11.12.1
-      # Replay the published-release context for the scripts at the target tag.
-      # This also lets manual retries use tags predating workflow_dispatch.
-      - name: Prepare validated release context
-        env:
-          RELEASE_EVENT: ${{ needs.resolve-release.outputs.event }}
-        run: node -e "require('node:fs').writeFileSync(process.env.RUNNER_TEMP + '/release-event.json', process.env.RELEASE_EVENT)"
       - name: Check release tag and main ancestry
         env:
-          RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
+          FLASHLEARN_RELEASE_ROOT: ${{ github.workspace }}/release-source
+          FLASHLEARN_RELEASE_EVENT: ${{ needs.resolve-release.outputs.event }}
         run: |
-          env GITHUB_EVENT_NAME=release GITHUB_EVENT_PATH="$RUNNER_TEMP/release-event.json" GITHUB_REF="refs/tags/$RELEASE_TAG" node scripts/check-release-event.mjs
+          node ../release-tools/scripts/check-release-event.mjs
           git fetch origin main
           git merge-base --is-ancestor HEAD origin/main
       - run: npm ci
       - run: npm run release:check
       - name: Publish the tested tarball using npm OIDC
         env:
-          RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
-        run: env GITHUB_EVENT_NAME=release GITHUB_EVENT_PATH="$RUNNER_TEMP/release-event.json" GITHUB_REF="refs/tags/$RELEASE_TAG" node scripts/publish-release.mjs
+          FLASHLEARN_RELEASE_ROOT: ${{ github.workspace }}/release-source
+          FLASHLEARN_RELEASE_EVENT: ${{ needs.resolve-release.outputs.event }}
+        run: node ../release-tools/scripts/publish-release.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-release
           path: |
-            .release/flashlearn.tgz
-            .release/artifact.json
+            release-source/.release/flashlearn.tgz
+            release-source/.release/artifact.json
   release-assets:
     needs: [resolve-release, publish]
     runs-on: ubuntu-latest

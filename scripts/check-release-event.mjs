@@ -1,7 +1,5 @@
-import { readFile } from "node:fs/promises";
 import { releaseManifest } from "./release-lib.mjs";
-import { validateReleaseEvent } from "./release-validation.mjs";
+import { checkReleaseContext } from "./release-context.mjs";
 
-validateReleaseEvent(await releaseManifest(), process.env.GITHUB_EVENT_NAME,
-  JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, "utf8")), process.env.GITHUB_REF);
+await checkReleaseContext(await releaseManifest(process.env.FLASHLEARN_RELEASE_ROOT));
 console.log("Published release tag and version agree");
