@@ -138,6 +138,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - `QuestionExtractor` is the extension point for an AI-backed generator.
 - `MarkdownExtractor`, `JsDocExtractor`, `GoDocExtractor`, and `ExportSignatureExtractor` are the deterministic baseline, combined by `CompositeExtractor` in `deterministicExtractor()`.
 - `EndpointExtractor` sends code files to a chat-completions endpoint configured through `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL`. `defaultExtractor()` selects it when both are set and falls back to the deterministic baseline otherwise, so runs work offline.
+- Interactive CLI generation can select GitHub Copilot CLI, OpenAI, Anthropic Claude, a custom OpenAI-compatible endpoint, or deterministic extraction. Copilot requires confirmation, prompted API keys are current-run-only, and deterministic fallback must be explicit.
 - Stamp `source` from the scanned path and SHA, never from a model reply. A failed request must yield no cards rather than abort a repository-wide run.
 - Supported sources are `.go`, `.js`, `.jsx`, `.md`, `.ts`, and `.tsx`.
 - Ignore generated, dependency, Git, and FlashLearn state directories when traversing.

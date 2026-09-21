@@ -104,11 +104,13 @@ Keep that directory out of version control. The server binds to localhost by
 default on port 4173; use `start --host <host> --port 4180` to override the bind
 address and port. Wildcard hosts `0.0.0.0` and `::` are rejected.
 
-Without endpoint configuration, generation uses deterministic source/documentation
-extractors. Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL`
-enables a chat-completions endpoint. Code is sent to that configured endpoint;
-its access controls and retention policy are separate from local repository
-permissions. Keep endpoint credentials out of Git and public demo builds.
+Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` enables a
+chat-completions endpoint. Otherwise, interactive generation detects GitHub Copilot
+CLI and asks before using `copilot -p`, then offers OpenAI, Claude, custom endpoint,
+or deterministic extraction. Prompted API keys are held only for that command and
+are never persisted. Non-interactive runs clearly fall back to deterministic
+generation. Any selected AI provider receives code; its access controls and
+retention policy are separate from local repository permissions.
 
 The GitHub Pages showcase uses only public hand-authored samples in multiple-choice
 sessions of up to 12 cards. Selected topics share the slots, with the starting topic

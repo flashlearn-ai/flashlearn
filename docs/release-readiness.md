@@ -58,7 +58,7 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 ## npm artifact
 
-`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.1.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
+`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.2.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
 
 ```text
 .release/npm/
@@ -72,6 +72,8 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 The wrapper reports the public manifest version; all other commands delegate to the existing bundled CLI. Node built-ins remain external. The build rejects unresolved non-builtin imports. The frontend resolves `../client/dist/` relative to the installed bundle, not the user's working directory. Browser dependencies carry upstream React/ReactDOM/scheduler notices.
 
+For checkout development, `npm link` at the repository root exposes the same `flashlearn` executable under the published package name. Its source launcher rebuilds stale workspace outputs and preserves the caller's working directory.
+
 The allowlisted tarball contains no workspace sources, development tooling, Husky setup, or private package dependencies. Installing it requires Node.js 22.14+; Git is required for commit attribution. Installed command behavior is documented in `release/README.md` and `/docs/` on the site. CLI changes must update both in the same PR.
 
 ### CLI behavior to verify before release
@@ -81,30 +83,15 @@ The allowlisted tarball contains no workspace sources, development tooling, Husk
 - Recommend `generate` → `start`: generation automatically initializes missing storage; `init` is optional. Empty-deck startup prompts in a terminal (default no), or exits 1 with guidance non-interactively. `start --yes`/`-y` approves generation, including use of a configured endpoint. Existing decks are not regenerated. Failed generation or a still-empty deck prevents startup.
 - `generate --subpath src --max-files 20` scopes extraction without changing the project root or attribution. The subpath must be a repository-relative directory without `..`; the file limit must be a positive safe integer. These flags are generation-only. Generation upserts rather than pruning and exits 1 if no study cards remain available.
 - Queries support `-o, --output text|json|yaml`. Project diagnostics and generation progress go to stderr. For source-runner JSON/YAML, use `npm --silent run cli -- project status --project /path/to/repo -o json`; the runner uses the repository root as cwd and ensures sibling build outputs are ready.
-- Offline extraction stays local. Configured endpoint mode sends code to that endpoint; its access controls and retention are separate from repository permissions.
+- Offline extraction stays local. Interactive generation may detect and offer `copilot -p`, or collect current-run-only credentials for OpenAI, Claude, or a custom endpoint. It clearly calls out deterministic fallback. Any selected AI provider receives code and has access controls and retention separate from repository permissions.
 
 For stacked PRs, each documentation change must describe behavior available with that PR and its merged base. Document later frontend changes with their owning PR. Owner workstream completion requires the agreed deliverable to be completed and merged, not just passing tests.
 
 ## npm account setup and first publication
 
-The package name is `@flashlearnai/cli`. The publishing account must have permission to publish under the `@flashlearnai` organization scope. Confirm membership with `npm org ls flashlearnai`.
+The public package is [`@flashlearnai/cli`](https://www.npmjs.com/package/@flashlearnai/cli). Keep `release/package.json`, the manifest validator, install examples, and npm trusted-publisher configuration aligned with that scope. The installed executable remains `flashlearn`.
 
-### Manual first publication
-
-From the repository root, build and test the artifact, then publish with your npm account. This first release uses `latest` because `0.1.0` has no prerelease suffix. Local publication explicitly disables provenance; the OIDC workflow will enable it for future releases.
-
-```bash
-npm ci
-npm run release:check
-npm whoami
-npm publish .release/flashlearn.tgz --access public --tag latest --provenance=false
-npm view @flashlearnai/cli@0.1.0 version dist-tags
-npx --yes @flashlearnai/cli@0.1.0 --version
-```
-
-Publish the exact tarball checked by `release:check`. It writes matching SHA-256 receipts in `.release/artifact.json` and `.release/tested.json`. Do not edit or rebuild the artifact between verification and publication. npm may request account/2FA approval. Record the corresponding release commit before setting up GitHub-Release-driven publishing.
-
-### Subsequent releases with OIDC
+### Releases with OIDC
 
 Configure npm trusted publishing for:
 
@@ -116,7 +103,7 @@ Configure npm trusted publishing for:
 
 Current npm OIDC support requires npm 11.5.1+ and Node 22.14+. The workflow pins npm 11.12.1 and uses Node 24 on a GitHub-hosted runner. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers).
 
-After the owner-authenticated first publication, configure the trusted publisher on `@flashlearnai/cli` and the GitHub `prod` environment. No registry credentials or account changes are performed by these scripts.
+The package already has an owner-published release. Configure the trusted publisher on `@flashlearnai/cli` and the GitHub `prod` environment. No registry credentials or account changes are performed by these scripts.
 
 In npm, open the package **Settings → Trusted publishing**, choose GitHub Actions, and enter the values above. The npm organization (`flashlearnai`) and GitHub organization (`flashlearn-ai`) are different names. In GitHub **Settings → Environments**, use `prod`; if deployment branch/tag restrictions are enabled, allow version tags such as `v*`, since release jobs run against tags. Optional required reviewers must approve the deployment before publishing starts. No `NPM_TOKEN` or `NODE_AUTH_TOKEN` secret is needed; `id-token: write` enables npm's OIDC exchange.
 
@@ -124,7 +111,7 @@ In npm, open the package **Settings → Trusted publishing**, choose GitHub Acti
 
 1. Update `release/package.json` in a reviewed commit on `main`; keep install examples and site docs synchronized.
 2. Run `release:check` and inspect `.release/artifact.json`.
-3. Open **Releases → Draft a new release**. Choose a matching tag (for example `v0.1.1`) at the reviewed `main` commit and write or generate the release notes. For a version with a suffix (for example `0.2.0-beta.0`), select **Set as a pre-release**; for `0.1.1`, leave it unchecked.
+3. Open **Releases → Draft a new release**. Choose a matching tag (for example `v0.2.0`) at the reviewed `main` commit and write or generate the release notes. For a version with a suffix (for example `0.2.0-beta.0`), select **Set as a pre-release**; for `0.2.0`, leave it unchecked.
 4. Click **Publish release**. The `release: published` event triggers **npm release** for both stable releases and prereleases. Drafts, edits, and tag pushes alone do not publish. Merge this workflow before creating the release; releases created with another workflow's default `GITHUB_TOKEN` do not trigger downstream workflows, so use the GitHub UI or `gh release create` with your own authenticated account.
 5. The workflow checks out the release tag, verifies tag/version/prerelease agreement and that the tagged commit is on `main`, then rebuilds, packs, and installs/tests the artifact.
 6. It verifies both artifact receipts and publishes the exact `.tgz` using OIDC with provenance: prereleases use `next`, stable versions use `latest`. It verifies the registry's SHA-512 integrity afterward.
