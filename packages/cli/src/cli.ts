@@ -5,7 +5,7 @@ import type { CliWorkstream, ProjectStatus, StartOptions } from "./workstream.js
 import type { GenerationProvider, GenerateOptions, GenerationProgress } from "./dependencies.js";
 import { toYaml } from "./yaml.js";
 
-export const CLI_VERSION = "0.2.0";
+export const CLI_VERSION = "0.3.0";
 
 export const HELP = `Usage: flashlearn <command> [directory] [options]
 
