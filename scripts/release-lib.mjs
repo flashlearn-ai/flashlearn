@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 export const ROOT = fileURLToPath(new URL("../", import.meta.url));
 export const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -24,7 +25,7 @@ export function validateManifest(manifest) {
   if (manifest.bin?.flashlearn !== "dist/index.js" || manifest.license !== "MIT") throw new Error("Invalid release bin or license");
   return manifest;
 }
-export async function releaseManifest() {
-  return validateManifest(JSON.parse(await readFile(new URL("../release/package.json", import.meta.url), "utf8")));
+export async function releaseManifest(root = ROOT) {
+  return validateManifest(JSON.parse(await readFile(join(root, "release/package.json"), "utf8")));
 }
 export function distTag(version) { return version.includes("-") ? "next" : "latest"; }

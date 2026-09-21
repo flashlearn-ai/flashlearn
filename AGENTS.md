@@ -40,6 +40,8 @@ Scripts under `scripts/` are covered by `test/*.test.mjs` at the repository root
 
 Run the source CLI from the repository root with `npm run cli -- <command>`. The runner uses input/output fingerprints to reuse valid sibling builds and rebuild changed or missing outputs, including the live frontend bundle. Cache metadata lives in `node_modules/.cache/flashlearn/`. It uses the repository root as its working directory. Use `--project` to target another directory and `npm --silent run cli -- project status -o json` for structured stdout; build logs and project/progress diagnostics belong on stderr.
 
+Pin external GitHub Actions to full commit SHAs with a release-version comment. JavaScript actions use Node 24; check composite actions' nested dependencies too when updating pins. The action runtime is separate from the project Node version selected by `setup-node`.
+
 GitHub CI exposes four independent statuses:
 
 - `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`. It compares against the merge base, so unrelated packages that land on `main` after a branch is cut do not count against it. The job needs full history (`fetch-depth: 0`).
@@ -231,6 +233,7 @@ CLI integration tests use `packages/cli/test/fakes/harness.ts`, which provides i
 - `release/package.json` is the public version source. `site:build` stamps that version into site docs; the installed wrapper reads it for `--version`.
 - The public package is `@flashlearnai/cli`; its executable is `flashlearn`. The internal `@flashlearn/cli` workspace remains private: publish only the built release tarball. First publication is owner-authenticated with `--provenance=false`; configure OIDC afterward for the existing provenance-enabled workflow.
 - `.github/workflows/publish.yml` publishes on GitHub Release `published` events or manual dispatch with an existing published release tag, not tag pushes. Both paths fetch release metadata and validate tag, manifest version, prerelease flag, and main ancestry. OIDC uses the `prod` environment. Reruns skip only identical registry artifacts; the final job attaches the tested tarball/receipt to the existing release.
+- Preserve GitHub-provided environment variables for npm OIDC/provenance. Publishing uses workflow-revision tooling with tagged source in a separate checkout; `FLASHLEARN_RELEASE_ROOT` and `FLASHLEARN_RELEASE_EVENT` carry artifact location and release metadata without rewriting `GITHUB_*` context.
 - `.github/workflows/create-release.yml` is a main-only manual entrypoint with no tag/version input. It tests the artifact, derives the tag/prerelease flag from the release manifest, pins the tag to the workflow commit, and explicitly dispatches `publish.yml` because built-in-token release creation does not trigger downstream release events. Existing tags at other commits are never moved.
 - Verify `release:check`, `site:build`, and `site:test` for release-facing changes. Pages uploads only `.release/site`; npm publishes only the digest-checked `.release/flashlearn.tgz`.
 - Pages and release-artifact CI run `npm run site:build -- --demo` so the public `/demo/` link is deployed and browser-tested. Local builds without `--demo` continue to omit sample content.
