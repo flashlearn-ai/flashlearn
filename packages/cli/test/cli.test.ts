@@ -299,10 +299,93 @@ test("generate passes scoping options while retaining the repository root", asyn
   const cli: CliWorkstream = new RecordingCli();
   cli.generate = async (root: string, options?: GenerateOptions) => {
     assert.equal(root, "/project/repo");
-    assert.deepEqual(options, { subpath: "src", maxFiles: 3 });
+    assert.deepEqual(options, { subpath: "src", maxFiles: 3, provider: { kind: "deterministic" } });
     return [];
   };
   assert.equal(await runCli(["generate", "--subpath", "src", "--max-files", "3", "--project", "repo"], cli, output.io), 0);
+});
+
+test("generate offers a detected Copilot CLI and passes the selection", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  cli.generate = async (_root, options) => {
+    assert.deepEqual(options, { provider: { kind: "copilot" } });
+    return [];
+  };
+  const io = {
+    ...output.io,
+    detectCopilot: async () => true,
+    confirm: async (message: string) => {
+      assert.match(message, /copilot -p/);
+      return true;
+    },
+  };
+
+  assert.equal(await runCli(["generate"], cli, io), 0);
+  assert.match(output.stderr.join("\n"), /Using GitHub Copilot CLI/);
+});
+
+test("generate can configure OpenAI with an in-memory API key", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  cli.generate = async (_root, options) => {
+    assert.deepEqual(options, {
+      provider: {
+        kind: "endpoint",
+        url: "https://api.openai.com/v1/chat/completions",
+        model: "gpt-4o-mini",
+        apiKey: "secret",
+      },
+    });
+    return [];
+  };
+  const answers = ["openai", "secret", ""];
+  const secrets: boolean[] = [];
+  const io = {
+    ...output.io,
+    prompt: async (_message: string, secret = false) => {
+      secrets.push(secret);
+      return answers.shift() ?? null;
+    },
+  };
+
+  assert.equal(await runCli(["generate"], cli, io), 0);
+  assert.deepEqual(secrets, [false, true, false]);
+  assert.match(output.stderr.join("\n"), /API key will not be saved/);
+});
+
+test("incomplete provider setup clearly falls back to deterministic generation", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  cli.generate = async (_root, options) => {
+    assert.deepEqual(options, { provider: { kind: "deterministic" } });
+    return [];
+  };
+  const answers = ["custom", "", "", ""];
+  const io = { ...output.io, prompt: async () => answers.shift() ?? null };
+
+  assert.equal(await runCli(["generate"], cli, io), 0);
+  assert.match(output.stderr.join("\n"), /Falling back to deterministic generation/);
+  assert.match(output.stderr.join("\n"), /no source code will be sent/);
+});
+
+test("configured endpoint skips interactive provider setup", async () => {
+  const output = capture();
+  const cli = new RecordingCli();
+  cli.generate = async (_root, options) => {
+    assert.deepEqual(options, {});
+    return [];
+  };
+  const io = {
+    ...output.io,
+    endpointConfigured: true,
+    detectCopilot: async () => true,
+    confirm: async () => { assert.fail("unexpected confirmation"); return false; },
+    prompt: async () => { assert.fail("unexpected prompt"); return null; },
+  };
+
+  assert.equal(await runCli(["generate"], cli, io), 0);
+  assert.match(output.stderr.join("\n"), /configured inference endpoint/);
 });
 
 test("rejects invalid extraction limits and misplaced options before generation", async () => {

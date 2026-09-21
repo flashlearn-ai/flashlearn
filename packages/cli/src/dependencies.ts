@@ -21,7 +21,14 @@ export type ServerHandle = unknown;
 export type GenerateOptions = {
   subpath?: string;
   maxFiles?: number;
+  provider?: GenerationProvider;
 };
+
+export type GenerationProvider =
+  | { kind: "anthropic"; apiKey: string; model: string }
+  | { kind: "copilot" }
+  | { kind: "deterministic" }
+  | { kind: "endpoint"; url: string; model: string; apiKey?: string; authHeader?: string };
 
 export interface CliDependencies {
   initializeStore(root: string): Promise<void>;

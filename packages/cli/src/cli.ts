@@ -2,10 +2,10 @@ import { isAbsolute, resolve, sep } from "node:path";
 import { flashlearnRoot } from "./paths.js";
 import type { Card } from "../../../contracts/index.js";
 import type { CliWorkstream, ProjectStatus, StartOptions } from "./workstream.js";
-import type { GenerateOptions } from "./dependencies.js";
+import type { GenerationProvider, GenerateOptions } from "./dependencies.js";
 import { toYaml } from "./yaml.js";
 
-export const CLI_VERSION = "0.0.0";
+export const CLI_VERSION = "0.2.0";
 
 export const HELP = `Usage: flashlearn <command> [directory] [options]
 
@@ -52,6 +52,9 @@ export type CliIO = {
   stdout(message: string): void;
   stderr(message: string): void;
   confirm?(message: string): Promise<boolean>;
+  prompt?(message: string, secret?: boolean): Promise<string | null>;
+  detectCopilot?(): Promise<boolean>;
+  endpointConfigured?: boolean;
 };
 
 class UsageError extends Error {}
@@ -126,7 +129,7 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
         io.stdout("  # Generate study cards from this repository");
         io.stdout(`  flashlearn generate --project ${quoteArgument(directory)}`);
       } else {
-        if (!await generateForStudy(service, io, directory, options)) return 1;
+        if (!await generateForStudy(service, io, directory, await generationOptions(io, options))) return 1;
         io.stdout("");
         io.stdout("Next:");
         io.stdout("  # Start the local learning experience");
@@ -146,7 +149,7 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
           io.stderr(`Required first step:\n  ${generateCommand}\nThen:\n  flashlearn start --project ${quoteArgument(directory)}\nOr approve empty-deck generation with start --yes.`);
           return 1;
         }
-        if (!await generateForStudy(service, io, directory)) return 1;
+        if (!await generateForStudy(service, io, directory, await generationOptions(io))) return 1;
       }
       await service.start(directory, options);
       const url = `http://${options.host ?? "localhost"}:${options.port ?? 4173}`;
@@ -167,6 +170,65 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
     }
     return 1;
   }
+}
+
+async function generationOptions(io: CliIO, options: GenerateOptions = {}): Promise<GenerateOptions> {
+  if (io.endpointConfigured) {
+    io.stderr("Using the configured inference endpoint.");
+    return options;
+  }
+
+  if (io.confirm && await io.detectCopilot?.()) {
+    const approved = await io.confirm("GitHub Copilot CLI was found on PATH. Use `copilot -p` to generate cards from source files? [y/N] ");
+    if (approved) {
+      io.stderr("Using GitHub Copilot CLI for code card generation.");
+      return { ...options, provider: { kind: "copilot" } };
+    }
+  }
+
+  if (!io.prompt) return deterministicOptions(io, options, "No interactive provider setup is available.");
+  const choice = (await io.prompt("Generation provider [deterministic/openai/claude/custom] (default deterministic): "))?.trim().toLowerCase();
+  if (!choice || choice === "deterministic") return deterministicOptions(io, options, "Deterministic generation selected.");
+
+  let provider: GenerationProvider | null = null;
+  if (choice === "openai") {
+    const apiKey = await requiredSecret(io, "OpenAI API key (current run only): ");
+    const model = await withDefault(io, "OpenAI model [gpt-4o-mini]: ", "gpt-4o-mini");
+    if (apiKey && model) provider = { kind: "endpoint", url: "https://api.openai.com/v1/chat/completions", model, apiKey };
+  } else if (choice === "claude") {
+    const apiKey = await requiredSecret(io, "Anthropic API key (current run only): ");
+    const model = await withDefault(io, "Claude model [claude-sonnet-4-5]: ", "claude-sonnet-4-5");
+    if (apiKey && model) provider = { kind: "anthropic", apiKey, model };
+  } else if (choice === "custom") {
+    const url = (await io.prompt("OpenAI-compatible chat-completions URL: "))?.trim();
+    const model = (await io.prompt("Model or deployment name: "))?.trim();
+    const apiKey = (await io.prompt("API key (optional, current run only): ", true))?.trim();
+    const authHeader = apiKey ? (await withDefault(io, "Authentication header [Authorization]: ", "Authorization")) : null;
+    if (url && model) {
+      if (!apiKey) provider = { kind: "endpoint", url, model };
+      else if (authHeader) provider = { kind: "endpoint", url, model, apiKey, authHeader };
+    }
+  } else {
+    return deterministicOptions(io, options, `Unknown provider "${choice}".`);
+  }
+
+  if (!provider) return deterministicOptions(io, options, "Provider setup was incomplete.");
+  io.stderr("Using the selected AI provider. Source files will be sent to that provider; the API key will not be saved.");
+  return { ...options, provider };
+}
+
+async function requiredSecret(io: CliIO, message: string): Promise<string | null> {
+  return (await io.prompt?.(message, true))?.trim() || null;
+}
+
+async function withDefault(io: CliIO, message: string, fallback: string): Promise<string | null> {
+  const value = await io.prompt?.(message);
+  return value === null || value === undefined ? null : value.trim() || fallback;
+}
+
+function deterministicOptions(io: CliIO, options: GenerateOptions, reason: string): GenerateOptions {
+  io.stderr(`${reason} Falling back to deterministic generation; no source code will be sent to an AI provider.`);
+  return { ...options, provider: { kind: "deterministic" } };
 }
 
 async function generateForStudy(service: CliWorkstream, io: CliIO, directory: string, options?: GenerateOptions): Promise<boolean> {

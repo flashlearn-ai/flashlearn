@@ -228,11 +228,14 @@ Once npm trusted publishing is configured, publishing a GitHub Release triggers 
 
 ```bash
 npm install
+npm link
 npm run check
 npm run build
 npm run test:browser:live --workspace @flashlearn/frontend
 npm run test --workspace @flashlearn/learning
 ```
+
+`npm link` at the repository root installs the `flashlearn` executable from the checkout. The linked launcher rebuilds stale workspace output before running and keeps the caller's working directory as the default project.
 
 Run the development CLI from the repository root:
 
@@ -249,7 +252,7 @@ Installed CLI commands default to the caller's working directory. Every command 
 
 **Migration:** `FLASHLEARN_PROJECT` and saved user configuration are ignored and left untouched. `project set` returns an argument error (exit code 2) with migration guidance. Use `project show` to inspect this invocation's directory; `init` creates storage only.
 
-The recommended first run is `flashlearn generate` followed by `flashlearn start`. Generation initializes missing storage, so `init` is optional. Empty-deck startup asks for confirmation in a terminal (default no); non-interactive runs exit 1 with guidance. `flashlearn start --yes` (or `-y`) approves generation, which may use a configured AI endpoint. Existing decks are not regenerated; failed generation or a still-empty deck prevents startup.
+The recommended first run is `flashlearn generate` followed by `flashlearn start`. Generation initializes missing storage, so `init` is optional. Without configured endpoint variables, an interactive run detects GitHub Copilot CLI and asks before using `copilot -p`; otherwise it offers OpenAI, Claude, custom endpoint, or deterministic generation. Entered API keys are current-run-only and never persisted. Non-interactive runs clearly use the deterministic fallback. Empty-deck startup asks for confirmation in a terminal (default no); `flashlearn start --yes` (or `-y`) approves generation. Existing decks are not regenerated; failed generation or a still-empty deck prevents startup.
 
 Scope extraction with `flashlearn generate --project /path/to/repo --subpath src --max-files 20`. The subpath must be a repository-relative directory without `..`; the limit must be a positive safe integer and counts supported files, not cards. These are `generate` options only. Source paths remain repository-relative. Generation upserts cards without deleting cards outside the scan; it exits 1 if no study cards are available afterward.
 
@@ -282,4 +285,4 @@ To compare extraction output against a real repository:
 npm run report --workspace @flashlearn/extraction -- /path/to/repo
 ```
 
-The `QuestionExtractor` port also supports the implemented endpoint-backed extractor. Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` enables it; optional authentication uses `FLASHLEARN_ENDPOINT_API_KEY`. Code is sent to that endpoint, whose permissions and retention are separate from local repository access controls. Without endpoint configuration, generation uses the offline deterministic baseline.
+The `QuestionExtractor` port supports HTTP endpoint, Anthropic Messages API, and GitHub Copilot CLI adapters. Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` remains the noninteractive endpoint configuration; optional authentication uses `FLASHLEARN_ENDPOINT_API_KEY`. Any selected AI provider receives code and has permissions and retention separate from local repository access controls. Deterministic generation sends no code to an AI provider.

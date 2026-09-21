@@ -38,6 +38,8 @@ If `start` finds no cards, an interactive terminal asks whether to generate them
 
 Generation prints a progress message, the count generated and stored **(new or updated)**, and the total cards available for study. A run producing zero cards can succeed if a previous deck is still available. If no study cards are available afterward, `generate` exits 1 with guidance instead of suggesting startup. Generation upserts cards; it does not prune cards absent from the latest run.
 
+When no endpoint environment variables are configured, an interactive generation run checks whether `copilot` is on `PATH` and asks before using `copilot -p`. If Copilot is declined or unavailable, provider setup offers OpenAI, Claude, a custom OpenAI-compatible endpoint, or deterministic extraction. Prompted API keys live only for the current command and are not written to `.flashlearn/`. Non-interactive runs clearly fall back to deterministic extraction. Any AI choice sends supported source files to that provider.
+
 Successful lifecycle commands print a `Next:` block with a shell comment and a copyable, quoted command carrying `--project`.
 
 ## Extraction scope
