@@ -113,7 +113,10 @@ address and port. Wildcard hosts `0.0.0.0` and `::` are rejected.
 Generation starts with an **INFERENCE SOURCE** step. Setting both
 `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` selects the configured
 chat-completions endpoint. Otherwise, one menu offers Copilot (with PATH detection),
-OpenAI, Claude, custom endpoint, or offline heuristic. Use
+OpenAI, Claude, custom endpoint, or offline heuristic.
+Copilot is the first/default choice when detected: press Enter to use it. Without
+Copilot, Enter selects heuristic. Noninteractive input never accepts the AI default.
+Use
 `generate --inference-source openai|claude|custom|heuristic|copilot` to override the
 source for a command. OpenAI/Claude prompt for a masked API key and model; custom
 accepts a full HTTP(S) chat-completions URL, model, optional key and authentication

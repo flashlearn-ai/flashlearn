@@ -37,12 +37,31 @@ test("custom URL/header validation fails before inference and does not print sec
   await assert.rejects(selectInferenceSource(io(["custom", "https://example.test/chat", "m", "key", "bad\nheader"])), /header name/);
 });
 
-test("explicit source overrides configured endpoint; empty input stays offline", async () => {
+test("explicit source overrides configured endpoint; missing input stays offline", async () => {
   const context = { ...io([]), endpointConfigured: true };
   assert.equal((await selectInferenceSource(context, { inferenceSource: "heuristic" })).provider?.kind, "deterministic");
-  assert.equal((await selectInferenceSource(io([""]))).provider?.kind, "deterministic");
+  assert.equal((await selectInferenceSource(io([null]))).provider?.kind, "deterministic");
   assert.equal((await selectInferenceSource(io(["openai", ""]))).provider?.kind, "deterministic");
   await assert.rejects(selectInferenceSource(io(["unknown"])), /Unknown inference source/);
+});
+
+test("detected Copilot is first and Enter accepts its default; otherwise Enter selects heuristic", async () => {
+  for (const available of [true, false]) {
+    const context = io([]);
+    context.detectCopilot = async () => available;
+    context.prompt = async (message) => {
+      assert.match(message, new RegExp(`default ${available ? "copilot" : "heuristic"}`));
+      return "  ";
+    };
+    const result = await selectInferenceSource(context);
+    assert.equal(result.provider?.kind, available ? "copilot" : "deterministic");
+    const menu = context.output.find((line) => line.includes("openai    OpenAI"))!;
+    assert(menu.indexOf("copilot") < menu.indexOf("openai"));
+    if (available) assert.match(menu, /default; sends code\/docs/);
+  }
+  const noPrompt = { ...io([]), prompt: undefined };
+  assert.equal((await selectInferenceSource(noPrompt)).provider?.kind, "deterministic");
+  assert.equal((await selectInferenceSource(io(["heuristic"]))).provider?.kind, "deterministic");
 });
 
 test("source flag rejects conflicts and invalid sources before generation", async () => {

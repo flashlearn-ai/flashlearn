@@ -12,9 +12,12 @@ export async function selectInferenceSource(io: CliIO, options: GenerateOptions 
   const available = !explicit || explicit === "copilot" ? await io.detectCopilot?.() ?? false : false;
   let choice = explicit;
   if (!choice) {
-    io.stderr(`  copilot   GitHub Copilot CLI — ${available ? "detected on PATH" : "not found on PATH"}\n  openai    OpenAI API — API key + model\n  claude    Anthropic Messages API — API key + model\n  custom    OpenAI-compatible URL — model + optional key/header\n  heuristic Offline source-derived recall — no LLM or network`);
-    const answer = (await io.prompt?.("Inference source [copilot/openai/claude/custom/heuristic] (default heuristic): "))?.trim().toLowerCase();
-    if (!answer) return offline(io, options, "No AI source selected.");
+    io.stderr(`  copilot   GitHub Copilot CLI — ${available ? "detected on PATH (default; sends code/docs to Copilot)" : "not found on PATH"}\n  openai    OpenAI API — API key + model\n  claude    Anthropic Messages API — API key + model\n  custom    OpenAI-compatible URL — model + optional key/header\n  heuristic Offline source-derived recall — no LLM or network`);
+    const input = await io.prompt?.(`Inference source [copilot/openai/claude/custom/heuristic] (default ${available ? "copilot" : "heuristic"}): `);
+    // null/undefined means no interactive answer; only an actual Enter accepts
+    // the displayed default. Detection alone must not enable AI in automation.
+    if (input == null) return offline(io, options, "No interactive AI selection.");
+    const answer = input.trim().toLowerCase() || (available ? "copilot" : "heuristic");
     if (answer === "deterministic") choice = "heuristic";
     else if (["copilot", "openai", "claude", "custom", "heuristic"].includes(answer)) choice = answer as NonNullable<GenerateOptions["inferenceSource"]>;
     else throw new Error(`Unknown inference source: ${answer}. Choose copilot, openai, claude, custom, or heuristic.`);

@@ -40,7 +40,7 @@ Generation prints a progress message, the count generated and stored **(new or u
 
 ### Inference source
 
-Generation (including empty-deck `start`) begins with a dedicated **INFERENCE SOURCE** stage. When no endpoint environment configuration or explicit flag selects a provider, one menu offers **Copilot, OpenAI, Claude, Custom, or Heuristic**. Copilot detection is shown alongside the other choices rather than taking over setup. Selecting a provider is the opt-in to send source/documentation to it; blank input selects offline heuristic. Unknown selections and invalid custom URLs fail with guidance instead of silently choosing another provider.
+Generation (including empty-deck `start`) begins with a dedicated **INFERENCE SOURCE** stage. When no endpoint environment configuration or explicit flag selects a provider, one menu offers **Copilot, OpenAI, Claude, Custom, or Heuristic**. Detected Copilot is listed first and is the interactive default: pressing Enter selects it, with the menu explaining that code/docs are sent to Copilot. If Copilot is unavailable, Enter selects offline heuristic. Missing/noninteractive input still selects offline, even when Copilot is installed; typing `heuristic` explicitly always selects offline. Unknown selections and invalid custom URLs fail with guidance instead of silently choosing another provider.
 
 ```bash
 flashlearn generate --inference-source openai
