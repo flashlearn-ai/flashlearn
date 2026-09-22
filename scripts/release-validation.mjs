@@ -31,12 +31,63 @@ export function matchesPublishedArtifact(manifest, metadata, integrity) {
   return true;
 }
 
-export async function publishedVersion(manifest, fetchImpl = fetch) {
-  const response = await fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(manifest.name)}/${encodeURIComponent(manifest.version)}`, {
-    headers: { accept: "application/json", "cache-control": "no-cache" },
-    signal: AbortSignal.timeout(30_000),
-  });
+export class RegistryLookupError extends Error {
+  constructor(message, retryable, options) {
+    super(message, options);
+    this.retryable = retryable;
+  }
+}
+
+export async function publishedVersion(manifest, fetchImpl = fetch, timeoutMs = 30_000) {
+  let response;
+  try {
+    response = await fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(manifest.name)}/${encodeURIComponent(manifest.version)}`, {
+      headers: { accept: "application/json", "cache-control": "no-cache" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    throw new RegistryLookupError(`npm registry lookup failed: ${error.message}`, true, { cause: error });
+  }
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`npm registry lookup failed: HTTP ${response.status}`);
-  return response.json();
+  if (!response.ok) throw new RegistryLookupError(`npm registry lookup failed: HTTP ${response.status}`,
+    response.status === 408 || response.status === 429 || response.status >= 500);
+  try {
+    return await response.json();
+  } catch (error) {
+    // Interrupted response bodies and malformed gateway replies may be transient.
+    throw new RegistryLookupError("npm registry lookup failed: unreadable JSON response", true, { cause: error });
+  }
+}
+
+/** npm may accept a publish before its public registry has finished processing it. */
+export async function waitForPublishedArtifact(manifest, integrity, {
+  timeoutMs = 5 * 60_000,
+  intervalMs = 10_000,
+  lookup = (value, budget) => publishedVersion(value, fetch, Math.min(30_000, budget)),
+  now = Date.now,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  log = console.log,
+} = {}) {
+  const started = now();
+  const deadline = started + timeoutMs;
+  let attempt = 0;
+  let reason = "version not visible yet";
+  log(`Waiting up to ${timeoutMs / 1000}s for npm to process ${manifest.name}@${manifest.version} and expose its integrity…`);
+  while (now() < deadline) {
+    attempt += 1;
+    let metadata;
+    try {
+      metadata = await lookup(manifest, Math.max(1, deadline - now()));
+      reason = "version not visible yet (404)";
+    } catch (error) {
+      if (!(error instanceof RegistryLookupError) || !error.retryable) throw error;
+      reason = error.message;
+    }
+    // Never retry an artifact mismatch, and never re-publish while polling.
+    if (metadata !== undefined && matchesPublishedArtifact(manifest, metadata, integrity)) return;
+    const remaining = deadline - now();
+    log(`npm verification attempt ${attempt}: ${reason}; ${Math.round((now() - started) / 1000)}s elapsed, ${Math.max(0, Math.ceil(remaining / 1000))}s remaining.`);
+    if (remaining > 0) await sleep(Math.min(intervalMs, remaining));
+  }
+  throw new Error(`npm accepted publication, but ${manifest.name}@${manifest.version} could not be verified within ${timeoutMs / 1000}s (${reason}). Re-run the workflow to verify the existing artifact; do not bump the version just for propagation delay.`);
 }
