@@ -53,7 +53,7 @@ export function generationProgress(write: (value: string) => void, tty: boolean,
       const ratio = progress.total ? Math.max(0, Math.min(1, progress.completed / progress.total)) : 0;
       const filled = Math.floor(ratio * 16);
       status = `[${"=".repeat(filled)}${" ".repeat(16 - filled)}] ${progress.completed}/${progress.total} ${unit}`;
-      if (progress.phase === "generating") status += ` | ${progress.active ?? 0} active | ${progress.failed ?? 0} failed | ${progress.resumed ?? 0} reused`;
+      if (progress.phase === "generating" && unit === "batches") status += ` | ${progress.active ?? 0} active | ${progress.failed ?? 0} failed | ${progress.resumed ?? 0} reused`;
       status += ` | ${progress.cards} ${progress.phase === "generating" ? "candidates" : "cards"} | ${elapsed}`;
     }
     if (progress.requestStartedAt !== undefined && progress.timeoutMs !== undefined) {

@@ -38,7 +38,20 @@ If `start` finds no cards, an interactive terminal asks whether to generate them
 
 Generation prints a progress message, the count generated and stored **(new or updated)**, and the total cards available for study. A run producing zero cards can succeed if a previous deck is still available. If no study cards are available afterward, `generate` exits 1 with guidance instead of suggesting startup. Generation upserts cards; it does not prune cards absent from the latest run.
 
-When no endpoint environment variables are configured, an interactive generation run checks whether `copilot` is on `PATH` and asks before using `copilot -p`. If Copilot is declined or unavailable, provider setup offers OpenAI, Claude, a custom OpenAI-compatible endpoint, or deterministic extraction. Prompted API keys live only for the current command and are not written to `.flashlearn/`. Non-interactive runs clearly fall back to deterministic extraction. Any AI choice sends supported source files to that provider.
+### Inference source
+
+Generation (including empty-deck `start`) begins with a dedicated **INFERENCE SOURCE** stage. When no endpoint environment configuration or explicit flag selects a provider, one menu offers **Copilot, OpenAI, Claude, Custom, or Heuristic**. Copilot detection is shown alongside the other choices rather than taking over setup. Selecting a provider is the opt-in to send source/documentation to it; blank input selects offline heuristic. Unknown selections and invalid custom URLs fail with guidance instead of silently choosing another provider.
+
+```bash
+flashlearn generate --inference-source openai
+flashlearn generate --inference-source claude
+flashlearn generate --inference-source custom
+flashlearn generate --inference-source heuristic
+```
+
+OpenAI prompts for a masked API key and model (default `gpt-4o-mini`); Claude uses a masked Anthropic key and model (default `claude-sonnet-4-5`). Custom accepts a full HTTP(S) OpenAI-compatible chat-completions URL, model, optional key and header name (`Authorization` by default; `api-key` for raw-key auth). URLs with embedded credentials and invalid HTTP header names are rejected. Prompted keys are used only for the current command and never written to disk or printed in summaries. Blank required settings cancel into the clearly labeled offline mode. A valid key is not a connectivity check; provider errors are reported during inference.
+
+Without a flag, complete `FLASHLEARN_ENDPOINT_URL` / `FLASHLEARN_ENDPOINT_MODEL` configuration retains precedence and is announced in this stage. `--inference-source` overrides it for one invocation; `--copilot` / `--copilot-model` remain shortcuts and cannot conflict with another source flag. Noninteractive runs without endpoint configuration or explicit Copilot opt-in use the offline heuristic. Interactive key entry requires a terminal; configure endpoint environment variables for automation.
 
 Successful lifecycle commands print a `Next:` block with a shell comment and a copyable, quoted command carrying `--project`.
 
@@ -77,7 +90,13 @@ If fewer than five AI cards survive, or category inference fails or returns an i
 
 Each AI candidate must include a learning objective and a verbatim evidence quote from its cited excerpt. Quotes from another file or invented IDs are rejected; path and SHA are assigned locally. Evidence matching establishes textual support, **not semantic proof of the whole answer**. Documentation-derived questions name their document; documents marked aspirational get an explicit design-status qualification. Stale documentation and model errors still warrant human review.
 
-Quality checks reject vague helper/heading questions, constants/locator trivia, incomplete or truncated answers, and detectable list-count mismatches. Ranked candidates favor architectural foundations and reasoning; token-overlap/concept heuristics remove near-duplicate questions/answers and cap dominance at eight cards per file and 25 per subsystem. These are heuristics, not perfect semantic deduplication. **100 is a maximum, not a target: no deterministic filler is added in AI mode.** Offline deterministic mode uses the same source selection and ranking on up to 80 important files, with explicitly labeled section/doc-comment recall.
+Quality checks reject vague helper/heading questions, constants/locator trivia, incomplete or truncated answers, and detectable list-count mismatches. Ranked candidates favor architectural foundations and reasoning; token-overlap/concept heuristics remove near-duplicate questions/answers and cap dominance at eight cards per file and 25 per subsystem. These are heuristics, not perfect semantic deduplication. **100 is a maximum, not a target: no deterministic filler is added in AI mode.**
+
+### Offline heuristic quality
+
+Offline mode extracts complete definitions, short explanatory paragraphs and documented code responsibilities from up to 80 ranked files. It preserves paragraph/list-item boundaries, skips fenced code, tables, procedures, badges, demo/tool docs and context-dependent fragments, and uses sentence segmentation rather than cutting at a character budget. Questions identify a defined term, reuse an actual question heading, or ask about the documented responsibility/constraint. Answers remain extractive; architectural claims in aspirational documents are labeled as design intent. This is useful recall from documentation, not inferred understanding or LLM-generated categories.
+
+Substrate experiment (same committed source and file budget): the previous heuristic saved 100 cards, including 69 generic “what is explained about” prompts, 28 tool/demo cards, 2 badge answers and 9 detected dangling-list/Flags fragments. The tuned pass saved 51 cards in about four seconds, with zero of those markers, eight glossary cards instead of two, and average answer length 235 instead of 308 characters. These counts are quality proxies, not accuracy scores; source claims can still be stale and templates remain mechanical. Reproduce the comparison after building with `node packages/cli/scripts/evaluate-heuristic.mjs /path/to/repo`.
 
 This is bounded coverage, not exhaustive analysis. Runs may take several minutes; retaining useful work takes priority over a one-minute target.
 

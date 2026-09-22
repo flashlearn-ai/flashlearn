@@ -47,7 +47,7 @@ export class CliService implements CliWorkstream {
     const cards: Card[] = [];
 
     options?.onProgress?.({ phase: "saving", completed: 0, total: generatedCards.length, cards: generatedCards.length,
-      message: `Persisting ${generatedCards.length} cards. Existing cards and review history are preserved.\nCheckpoint is retained until all card writes succeed.` });
+      message: `Persisting ${generatedCards.length} cards. Existing cards and review history are preserved.${options?.provider?.kind === "deterministic" ? "" : "\nCheckpoint is retained until all card writes succeed."}` });
     for (const generated of generatedCards) {
       this.validateGeneratedCard(generated);
       const id = createHash("sha256")
@@ -68,7 +68,7 @@ export class CliService implements CliWorkstream {
 
     await this.dependencies.completeGeneration?.(root, options);
     options?.onProgress?.({ phase: "done", completed: cards.length, total: cards.length, cards: cards.length,
-      message: "Card persistence finished; matching AI checkpoint cleared." });
+      message: options?.provider?.kind === "deterministic" ? "Offline card persistence finished." : "Card persistence finished; matching AI checkpoint cleared." });
     return cards;
   }
 

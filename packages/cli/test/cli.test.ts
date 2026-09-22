@@ -309,15 +309,15 @@ test("generate offers a detected Copilot CLI and passes the selection", async ()
   const output = capture();
   const cli = new RecordingCli();
   cli.generate = async (_root, options) => {
-    assert.deepEqual(options, { provider: { kind: "copilot" } });
+    assert.deepEqual(options, { provider: { kind: "copilot", model: "auto" } });
     return [];
   };
   const io = {
     ...output.io,
     detectCopilot: async () => true,
-    confirm: async (message: string) => {
-      assert.match(message, /copilot -p/);
-      return true;
+    prompt: async (message: string) => {
+      assert.match(message, /Inference source/);
+      return "copilot";
     },
   };
 
@@ -393,7 +393,7 @@ test("incomplete provider setup clearly falls back to deterministic generation",
 
   assert.equal(await runCli(["generate"], cli, io), 0);
   assert.match(output.stderr.join("\n"), /Falling back to deterministic generation/);
-  assert.match(output.stderr.join("\n"), /no source code will be sent/);
+  assert.match(output.stderr.join("\n"), /No source code will be sent/);
 });
 
 test("configured endpoint skips interactive provider setup", async () => {

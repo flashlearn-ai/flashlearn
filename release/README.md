@@ -110,13 +110,22 @@ Keep that directory out of version control. The server binds to localhost by
 default on port 4173; use `start --host <host> --port 4180` to override the bind
 address and port. Wildcard hosts `0.0.0.0` and `::` are rejected.
 
-Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` enables a
-chat-completions endpoint. Otherwise, interactive generation detects GitHub Copilot
-CLI and asks before using `copilot -p`, then offers OpenAI, Claude, custom endpoint,
-or deterministic extraction. Prompted API keys are held only for that command and
-are never persisted. Non-interactive runs clearly fall back to deterministic
-generation. Any selected AI provider receives code; its access controls and
-retention policy are separate from local repository permissions.
+Generation starts with an **INFERENCE SOURCE** step. Setting both
+`FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` selects the configured
+chat-completions endpoint. Otherwise, one menu offers Copilot (with PATH detection),
+OpenAI, Claude, custom endpoint, or offline heuristic. Use
+`generate --inference-source openai|claude|custom|heuristic|copilot` to override the
+source for a command. OpenAI/Claude prompt for a masked API key and model; custom
+accepts a full HTTP(S) chat-completions URL, model, optional key and authentication
+header. Prompted keys stay in memory only. Blank required settings cancel to
+offline; invalid URLs or source names fail with guidance. Noninteractive runs
+without configured inference use offline extraction. AI providers receive source
+excerpts under their own access controls and retention policies.
+
+Offline heuristic cards use complete definitions, explanatory paragraphs and code
+comments. Procedural sections, badges, tool/demo docs and dangling fragments are
+omitted. Answers are extracted from source rather than synthesized; this mode
+has no LLM categories and may produce a smaller deck.
 
 The GitHub Pages showcase uses only public hand-authored samples in multiple-choice
 sessions of up to 12 cards. Selected topics share the slots, with the starting topic
