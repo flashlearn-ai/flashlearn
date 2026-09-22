@@ -27,8 +27,10 @@ export type GenerateOptions = {
 };
 
 export const MAX_GENERATED_CARDS = 100;
+/** CLI-owned enrichment; the extraction GeneratedCard contract stays unchanged. */
+export type StudyGeneratedCard = GeneratedCard & { tags?: string[] };
 export type GenerationProgress = {
-  phase: "scanning" | "selecting" | "generating" | "saving" | "done";
+  phase: "scanning" | "selecting" | "generating" | "categorizing" | "saving" | "done";
   completed: number;
   total: number;
   cards: number;
@@ -43,7 +45,7 @@ export type GenerationProvider =
 
 export interface CliDependencies {
   initializeStore(root: string): Promise<void>;
-  generateCards(root: string, options?: GenerateOptions): Promise<GeneratedCard[]>;
+  generateCards(root: string, options?: GenerateOptions): Promise<StudyGeneratedCard[]>;
   createCardRepository(root: string): CardRepository;
   createReviewRepository(root: string): ReviewRepository;
   scheduleReview(state: ReviewState, result: ReviewResult, now?: Date): ReviewState;

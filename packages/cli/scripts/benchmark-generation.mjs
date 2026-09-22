@@ -19,13 +19,17 @@ try {
   process.stderr.write(result.stderr ?? "");
   process.stdout.write(result.stdout ?? "");
   const cards = JSON.parse(await readFile(join(project, ".flashlearn/cards.json"), "utf8").catch(() => "[]"));
+  const categories = {};
+  for (const card of cards) categories[card.tags?.[0] ?? "untagged"] = (categories[card.tags?.[0] ?? "untagged"] ?? 0) + 1;
   console.log(JSON.stringify({ source, model, elapsedMs: Math.round(elapsedMs), cards: cards.length,
     codeCards: cards.filter((card) => !card.source.path.endsWith(".md")).length,
     documentationCards: cards.filter((card) => card.source.path.endsWith(".md")).length,
+    categories,
     excludedSourceCards: cards.filter((card) => /(^|\/)(?:_LICENSES|\.agents|vendor|third_party)\//i.test(card.source.path)).length,
     ...(keep ? { evaluationDeck: join(project, ".flashlearn/cards.json") } : {}),
     exitCode: result.status, error: result.error?.message, underOneMinute: elapsedMs < 60_000 }, null, 2));
-  process.exitCode = result.status === 0 && cards.length > 0 && cards.length <= 100 && elapsedMs < 60_000 ? 0 : 1;
+  process.exitCode = result.status === 0 && cards.length > 0 && cards.length <= 100 && elapsedMs < 60_000
+    && !categories.untagged && Object.values(categories).every((count) => count >= 5) ? 0 : 1;
 } finally {
   if (!keep) await rm(root, { recursive: true, force: true });
 }
