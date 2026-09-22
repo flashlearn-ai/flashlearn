@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { heuristicCards } from "../src/heuristic.js";
+import { selectCards } from "../src/card-quality.js";
 
 const document = (content: string, path = "README.md") => ({ path, content, sha: "real" });
 
@@ -36,4 +37,54 @@ test("aspirational documentation is qualified and procedure repositories are exc
   const source = "# Architecture\nNOTE: This architecture is aspirational.\n## Worker lifecycle\nWorkers restore persistent snapshots before routing traffic to the application.\n";
   assert.match(heuristicCards(document(source))[0]!.answer, /^Documented design/);
   assert.deepEqual(heuristicCards(document(source, "tools/setup/README.md")), []);
+});
+
+test("late implementation caveats survive in Markdown and code-comment answers", () => {
+  const prose = "Workers persist snapshots before releasing capacity. Durable snapshots keep application state intact across replacement. This behavior is planned and is not implemented in the current release.";
+  const [markdown] = heuristicCards(document(`# Runtime\n## Recovery\n${prose}\n`));
+  assert(markdown);
+  assert.equal(markdown.answer, prose);
+  const comment = prose.replace(/^Workers persist/, "Store provides");
+  const [code] = heuristicCards(document(`// ${comment}\ntype Store struct {}`, "store.go"));
+  assert(code);
+  assert.match(code.answer, /planned and is not implemented/);
+  const [separateParagraph] = heuristicCards(document(`// Store provides persistent snapshots before releasing worker capacity.\n//\n// This behavior is experimental and requires a feature flag.\ntype Store struct {}`, "store.go"));
+  assert.match(separateParagraph!.answer, /experimental and requires a feature flag/);
+});
+
+test("overlong or incomplete caveated passages are rejected rather than stripped", () => {
+  for (const prose of [
+    "Workers persist snapshots before releasing capacity. Durable storage preserves state after a restart. This requires",
+    `Workers persist snapshots before releasing capacity. ${"Additional explanation fills space. ".repeat(20)}This is only available with a feature flag.`,
+  ]) {
+    assert.deepEqual(heuristicCards(document(`# Runtime\n## Recovery\n${prose}`)), []);
+  }
+});
+
+test("JSDoc retains summaries while excluding annotation blocks and continuation text", () => {
+  const summary = "Cache provides immutable snapshots to prevent stale reads during recovery.";
+  const source = `/** ${summary}\n * @param key The snapshot identifier\n *   continuation text describing the key format\n * @returns The cached snapshot\n */\nexport function Cache(key: string) {}`;
+  const [card] = heuristicCards(document(source, "src/cache.ts"));
+  assert(card);
+  assert.equal(card.answer, summary);
+  assert(!card.answer.includes("continuation"));
+  assert.deepEqual(heuristicCards(document(source.replace("@param", "@deprecated\n * @param"), "src/cache.ts")), []);
+  assert.deepEqual(heuristicCards(document(source.replace("The cached snapshot", "Only available with an experimental feature flag"), "src/cache.ts")), []);
+});
+
+test("distinct subjects under one heading survive the final quality selector", () => {
+  const source = "# Runtime\n## Scheduling\nWorkers reserve capacity before activation to prevent two actors claiming the same slot.\n\nFailed reservations must be retried after releasing the lease to avoid leaking capacity.\n";
+  const candidates = heuristicCards(document(source));
+  const selected = selectCards(candidates).cards;
+  assert.equal(selected.length, 2);
+  assert.notEqual(selected[0]!.question, selected[1]!.question);
+  assert(candidates.some((card) => card.question.includes("Workers")));
+  assert(candidates.some((card) => card.question.includes("Failed reservations")));
+});
+
+test("without a recoverable subject the strongest representative is chosen deliberately", () => {
+  const source = "# Runtime\n## Recovery\nDuring recovery, snapshots restore application state before workloads accept requests.\n\nBefore running, capacity must be reserved to prevent conflicting worker assignments.\n";
+  const candidates = heuristicCards(document(source));
+  assert.equal(candidates.length, 1);
+  assert.match(candidates[0]!.answer, /capacity must be reserved/);
 });
