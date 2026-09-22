@@ -24,17 +24,25 @@ export type GenerateOptions = {
   provider?: GenerationProvider;
   copilotModel?: string;
   onProgress?: (progress: GenerationProgress) => void;
+  fresh?: boolean;
 };
 
 export const MAX_GENERATED_CARDS = 100;
 /** CLI-owned enrichment; the extraction GeneratedCard contract stays unchanged. */
 export type StudyGeneratedCard = GeneratedCard & { tags?: string[] };
 export type GenerationProgress = {
-  phase: "scanning" | "selecting" | "generating" | "categorizing" | "saving" | "done";
+  phase: "scanning" | "selecting" | "generating" | "reviewing" | "categorizing" | "saving" | "done" | "paused";
   completed: number;
   total: number;
   cards: number;
   message?: string;
+  unit?: "files" | "batches" | "cards";
+  active?: number;
+  failed?: number;
+  resumed?: number;
+  requestStartedAt?: number;
+  timeoutMs?: number;
+  attempt?: number;
 };
 
 export type GenerationProvider =
@@ -46,6 +54,7 @@ export type GenerationProvider =
 export interface CliDependencies {
   initializeStore(root: string): Promise<void>;
   generateCards(root: string, options?: GenerateOptions): Promise<StudyGeneratedCard[]>;
+  completeGeneration?(root: string, options?: GenerateOptions): Promise<void>;
   createCardRepository(root: string): CardRepository;
   createReviewRepository(root: string): ReviewRepository;
   scheduleReview(state: ReviewState, result: ReviewResult, now?: Date): ReviewState;

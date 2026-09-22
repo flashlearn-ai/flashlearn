@@ -57,7 +57,17 @@ flashlearn generate --project /path/to/repo --copilot-model auto
 
 The local first pass excludes license/dependency copies, hidden agent-tooling folders, tests/fixtures, generated sources, and contributor-process documents. It ranks the shallowest README first, boosts its linked design docs, glossary and lifecycle guides, then prioritizes entrypoints and behavior-rich code. Documentation gets reserved batches; related code is grouped by subsystem rather than sampled alphabetically. README context is supplied to every AI request when available **within the selected subpath/file budget**.
 
-Copilot, OpenAI-compatible endpoints, and Claude use the same curriculum prompt for **both code and Markdown**. Up to eight parallel batches (four files each, with a dedicated README batch when present) request at most ten candidates each. Excerpts preserve complete sections/declarations where practical within 7,000 characters per file. Each generation call has a 32-second timeout, reserving up to 18 seconds for the category pass; Copilot processes are killed on timeout. Calls may fail or yield no accepted cards, and are reported rather than hidden with filler.
+Copilot, OpenAI-compatible endpoints, and Claude use the same curriculum prompt for **both code and Markdown**. Up to eight parallel batches (four files each, with a dedicated README batch when present) request at most ten candidates each. Excerpts preserve complete sections/declarations where practical within 7,000 characters per file. Generation and category calls each allow **15 minutes**; Copilot processes are killed on timeout. Provider failures identify timeout, HTTP status, or Copilot exit diagnostics rather than being silently treated as an empty deck.
+
+Progress uses six numbered stages: scan, select, generate, quality review, categorize, and save. Detail lines report provider/model, selected sources, checkpoint location, batch start/completion/failure, candidate counts, and category repair attempts. Live status shows active/failed/reused batches, overall elapsed time and oldest active request time/remaining timeout. Categorization reports waiting for a response, not a fabricated percentage. Narrow terminals clip only the live status; redirected output uses plain lines with ten-second heartbeats and immediate event details. Completion and stopped states have separate headings and end the status line before results/errors.
+
+### Partial progress and retries
+
+Every completed AI batch is atomically checkpointed under `.flashlearn/generation/<run-key>.json` with restrictive file permissions. On a failed batch, successful sibling batches finish and are retained; the next invocation retries only unfinished batches. A categorization failure retains the accepted candidates, so rerunning retries categories without repeating successful source inference. Categorized results are checkpointed too, and removed only after every card has been persisted; interrupted saves can be safely upserted again.
+
+An invalid category partition receives one automatic repair attempt with the validation error (including missing card IDs). Each attempt has the same 15-minute allowance and a visible attempt counter. Timeouts/provider failures pause with retained progress rather than retrying the entire generation automatically; active sibling batches are allowed to finish and checkpoint first.
+
+Repeat the same command and choose the same provider/model and scope (including when `start` offers generation). `generate --fresh` explicitly discards that matching checkpoint. Changed selected working-tree content or README context invalidates the checkpoint automatically. API keys and raw source excerpts are never stored in it; generated candidates remain local runtime data. The ordinary study deck is not populated with unfinished/uncategorized cards. If persistence failed after some cards were saved, use `generate` to resume the remaining saves rather than `start`, which opens an already-populated deck.
 
 ### Learning categories
 
@@ -69,7 +79,7 @@ Each AI candidate must include a learning objective and a verbatim evidence quot
 
 Quality checks reject vague helper/heading questions, constants/locator trivia, incomplete or truncated answers, and detectable list-count mismatches. Ranked candidates favor architectural foundations and reasoning; token-overlap/concept heuristics remove near-duplicate questions/answers and cap dominance at eight cards per file and 25 per subsystem. These are heuristics, not perfect semantic deduplication. **100 is a maximum, not a target: no deterministic filler is added in AI mode.** Offline deterministic mode uses the same source selection and ranking on up to 80 important files, with explicitly labeled section/doc-comment recall.
 
-This is bounded coverage, not exhaustive analysis. The one-minute target depends on scanning, provider latency, and storage; it is not a universal SLA.
+This is bounded coverage, not exhaustive analysis. Runs may take several minutes; retaining useful work takes priority over a one-minute target.
 
 ### Generation benchmark
 
@@ -79,7 +89,7 @@ After `npm run build`, run:
 node packages/cli/scripts/benchmark-generation.mjs /path/to/repo auto
 ```
 
-The benchmark clones committed source into a temporary directory, runs the compiled CLI from process launch through persistence, reports elapsed time/card counts, and removes the clone. Add `--keep` after the model to retain the deck for local review. It excludes clone/build time and preserves the original repository's deck. It exits nonzero for a failed run, zero cards, over 100 cards, or elapsed time of at least 60 seconds.
+The benchmark clones committed source into a temporary directory, runs the compiled CLI from process launch through persistence, reports elapsed time/card counts, and removes the clone. Add `--keep` after the model to retain the deck/checkpoint for local review. It excludes clone/build time and preserves the original repository's deck. It allows 48 minutes for a run (including a category repair) and exits nonzero for a failed run, zero cards, over 100 cards, untagged cards or a category smaller than five. The under-one-minute measurement is informational, not a pass/fail condition.
 
 Quality evaluation found 47/100 cards from license copies or agent tooling in the earlier fast-generation prototype, and zero project-documentation cards. The revised final-plan run on `~/substrate` with Copilot `auto` took **49.0s**, selecting **36 AI cards (21 code-backed, 15 documentation-backed, including five README cards)** and **zero excluded-source cards**. It classified 512 files, excluded 96, and selected 29 important files across eight batches; one batch yielded no evidence-backed cards. Earlier tuning runs took 33.3–49.0s, with variable output. The reviewed final deck covers actor/worker multiplexing, Kubernetes' role, snapshot tradeoffs, component ownership, request flow, scheduling, cache safety and recovery. Timings are observations, not provider guarantees; no generated deck is committed.
 

@@ -94,7 +94,19 @@ function attributedCards(reply: string, input: ExtractInput): GeneratedCard[] {
   }
 }
 
-export async function runCopilot(prompt: string, model = "auto", timeout = 45_000): Promise<string | null> {
+export const INFERENCE_TIMEOUT_MS = 15 * 60_000;
+
+export function copilotError(error: unknown, timeout: number): Error {
+  const failure = error as { killed?: boolean; code?: string | number; stderr?: string; signal?: string };
+  if (failure.killed || failure.signal === "SIGKILL") return new Error(`Copilot timed out after ${timeout / 1000}s`);
+  if (failure.code === "ENOENT") return new Error("Copilot executable was not found on PATH");
+  // execFile's message includes the full prompt: never print it. Stderr carries
+  // CLI authentication/model diagnostics without echoing the source argument.
+  const detail = typeof failure.stderr === "string" ? failure.stderr.trim().replace(/[\r\n]+/g, " ").slice(0, 400) : "";
+  return new Error(`Copilot failed (exit ${failure.code ?? "unknown"})${detail ? `: ${detail}` : ""}`);
+}
+
+export async function runCopilot(prompt: string, model = "auto", timeout = INFERENCE_TIMEOUT_MS): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync("copilot", [
       "-p", prompt, "--model", model, ...(model === "auto" ? ["--auto-tier", "fast"] : []),
@@ -102,8 +114,8 @@ export async function runCopilot(prompt: string, model = "auto", timeout = 45_00
       "--available-tools=", "--disable-builtin-mcps",
     ], { timeout, killSignal: "SIGKILL", maxBuffer: 1_000_000 });
     return stdout;
-  } catch {
-    return null;
+  } catch (error) {
+    throw copilotError(error, timeout);
   }
 }
 
@@ -130,10 +142,10 @@ REPOSITORY CONTEXT:\n${context.slice(0, 5000)}
 NUMBERED SOURCE EXCERPTS:
 ${inputs.map((input, id) => `\nFile ${id}: ${input.path}\n${excerpts[id]}`).join("\n")}`;
   const reply = await run(prompt, model, timeout);
-  if (reply === null) return [];
+  if (!reply?.trim()) throw new Error("AI generation returned an empty reply");
   try {
     const parsed: unknown = JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1));
-    if (!parsed || typeof parsed !== "object" || !("cards" in parsed) || !Array.isArray(parsed.cards)) return [];
+    if (!parsed || typeof parsed !== "object" || !("cards" in parsed) || !Array.isArray(parsed.cards)) throw new Error("Missing cards array");
     return parsed.cards.flatMap((card: unknown) => {
       if (!card || typeof card !== "object") return [];
       const { fileId, question, answer, evidence, goal, concept } = card as Record<string, unknown>;
@@ -150,15 +162,15 @@ ${inputs.map((input, id) => `\nFile ${id}: ${input.path}\n${excerpts[id]}`).join
         goal: goal as LearningGoal, concept: concept.trim(), source: { path: source.path, sha: source.sha },
       }];
     }).slice(0, 10);
-  } catch {
-    return [];
+  } catch (error) {
+    throw new Error(`AI generation returned invalid card JSON: ${error instanceof Error ? error.message : "invalid response"}`);
   }
 }
 
 /** All AI providers share the curriculum prompt, evidence gate and doc support. */
 export function inferenceRunner(provider: Exclude<GenerationProvider, { kind: "deterministic" }>, fetchImpl: FetchLike = fetch): typeof runCopilot {
   if (provider.kind === "copilot") return runCopilot;
-  return async (prompt, _model, timeout = 45_000) => {
+  return async (prompt, _model, timeout = INFERENCE_TIMEOUT_MS) => {
     const anthropic = provider.kind === "anthropic";
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (anthropic) { headers["x-api-key"] = provider.apiKey; headers["anthropic-version"] = "2023-06-01"; }
@@ -172,10 +184,14 @@ export function inferenceRunner(provider: Exclude<GenerationProvider, { kind: "d
         body: JSON.stringify({ model: provider.model, messages: [{ role: "user", content: prompt }],
           ...(anthropic ? { max_tokens: 6000 } : { temperature: 0 }) }),
       });
-      if (!response.ok) return null;
+      if (!response.ok) throw new Error(`HTTP ${response.status}${response.status === 401 || response.status === 403 ? " (check provider credentials)" : ""}`);
       const payload = await response.json() as { content?: { type: string; text: unknown }[]; choices?: { message?: { content?: unknown } }[] };
       const content = anthropic ? payload.content?.find((item) => item.type === "text")?.text : payload.choices?.[0]?.message?.content;
-      return typeof content === "string" ? content : null;
-    } catch { return null; }
+      if (typeof content !== "string" || !content.trim()) throw new Error("provider returned no assistant content");
+      return content;
+    } catch (error) {
+      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) throw new Error(`AI endpoint timed out after ${timeout / 1000}s`);
+      throw new Error(`AI endpoint request failed: ${error instanceof Error ? error.message : "network error"}`);
+    }
   };
 }
