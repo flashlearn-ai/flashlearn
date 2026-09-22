@@ -1,6 +1,6 @@
 {
   "name": "@flashlearnai/cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Source-attributed study cards for faster codebase onboarding.",
   "type": "module",
   "license": "MIT",
