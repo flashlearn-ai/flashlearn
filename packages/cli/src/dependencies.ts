@@ -31,11 +31,18 @@ export const MAX_GENERATED_CARDS = 100;
 /** CLI-owned enrichment; the extraction GeneratedCard contract stays unchanged. */
 export type StudyGeneratedCard = GeneratedCard & { tags?: string[] };
 export type GenerationProgress = {
-  phase: "scanning" | "selecting" | "generating" | "categorizing" | "saving" | "done" | "paused";
+  phase: "scanning" | "selecting" | "generating" | "reviewing" | "categorizing" | "saving" | "done" | "paused";
   completed: number;
   total: number;
   cards: number;
   message?: string;
+  unit?: "files" | "batches" | "cards";
+  active?: number;
+  failed?: number;
+  resumed?: number;
+  requestStartedAt?: number;
+  timeoutMs?: number;
+  attempt?: number;
 };
 
 export type GenerationProvider =

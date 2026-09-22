@@ -23,7 +23,7 @@ test("LLM categories are stored as first tags without altering question, answer 
     assert(prompt.includes(cards[0]!.answer));
     assert(prompt.includes("at least 5"));
     assert.equal(model, "auto");
-    assert.equal(timeout, 300_000);
+    assert.equal(timeout, 900_000);
     return reply();
   }, "auto");
   assert.deepEqual(result.map(({ tags }) => tags?.[0]), Array(5).fill("Actor Lifecycle").concat(Array(5).fill("Snapshot Persistence")));
@@ -44,13 +44,17 @@ test("category partitions reject undersized, missing, duplicate, invented and va
 
 test("invalid categorization gets one repair attempt identifying missing IDs", async () => {
   let calls = 0;
+  const attempts: Array<{ attempt: number; reason?: string }> = [];
   const result = await categorizeCards(cards, async (prompt) => {
     if (calls++ === 0) return reply([groups[0]!]);
     assert.match(prompt, /missing IDs: 5, 6, 7, 8, 9/);
     return reply();
-  }, "auto");
+  }, "auto", undefined, (attempt, reason) => attempts.push({ attempt, reason }));
   assert.equal(calls, 2);
   assert.equal(result.length, cards.length);
+  assert.equal(attempts[0]?.attempt, 1);
+  assert.equal(attempts[1]?.attempt, 2);
+  assert.match(attempts[1]?.reason ?? "", /missing IDs/);
 });
 
 test("small decks and failed LLM grouping fail explicitly instead of inventing filler topics", async () => {

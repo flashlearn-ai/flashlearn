@@ -242,7 +242,7 @@ function deterministicOptions(io: CliIO, options: GenerateOptions, reason: strin
 }
 
 async function generateForStudy(service: CliWorkstream, io: CliIO, directory: string, options?: GenerateOptions): Promise<boolean> {
-  io.stderr("Generating up to 100 study cards...");
+  io.stderr("\nGENERATE STUDY CARDS\n  Maximum: 100 new/updated cards\n  AI calls: up to 15 minutes each; completed batches are checkpointed\n  Long runs are supported; elapsed progress updates while waiting.");
   let current: GenerationProgress = { phase: "scanning", completed: 0, total: 0, cards: 0 };
   const onProgress = (progress: GenerationProgress) => { current = { ...progress, message: undefined }; io.progress?.(progress); };
   const timer = io.progress ? setInterval(() => io.progress?.(current), 1_000) : undefined;

@@ -14,7 +14,7 @@ try {
   if (clone.status !== 0) throw new Error(clone.stderr);
   const started = performance.now();
   const result = spawnSync(process.execPath, [fileURLToPath(new URL("../dist/index.js", import.meta.url)),
-    "generate", "--project", project, "--copilot-model", model], { encoding: "utf8", timeout: 960_000 });
+    "generate", "--project", project, "--copilot-model", model], { encoding: "utf8", timeout: 2_880_000 });
   const elapsedMs = performance.now() - started;
   process.stderr.write(result.stderr ?? "");
   process.stdout.write(result.stdout ?? "");

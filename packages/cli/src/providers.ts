@@ -94,7 +94,7 @@ function attributedCards(reply: string, input: ExtractInput): GeneratedCard[] {
   }
 }
 
-export const INFERENCE_TIMEOUT_MS = 5 * 60_000;
+export const INFERENCE_TIMEOUT_MS = 15 * 60_000;
 
 export function copilotError(error: unknown, timeout: number): Error {
   const failure = error as { killed?: boolean; code?: string | number; stderr?: string; signal?: string };

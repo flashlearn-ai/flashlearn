@@ -36,8 +36,8 @@ test("category timeout retains generated cards; new service invocation retries o
   const configured = { ...options, onProgress: (event: { message?: string }) => { if (event.message) events.push(event.message); } };
   const first = createProductionDependencies();
   first.generateCards = (path, opts) => generateBounded(path, opts, async (prompt, _model, timeout) => {
-    assert.equal(timeout, 300_000);
-    if (prompt.startsWith("Organize")) { categorized++; throw new Error("Copilot timed out after 300s"); }
+    assert.equal(timeout, 900_000);
+    if (prompt.startsWith("Organize")) { categorized++; throw new Error("Copilot timed out after 900s"); }
     generated++;
     return batch;
   });
