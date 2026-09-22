@@ -28,6 +28,7 @@ Generate options:
   --max-files <number>    Limit eligible files after importance ranking
   --copilot              Use Copilot for this run (explicit opt-in)
   --copilot-model <name>  Copilot model (default: auto; implies --copilot)
+  --fresh                Discard matching generation checkpoint and start over
 
 Query options:
   -o, --output <format>   Output as text, json, or yaml (default: text)
@@ -39,7 +40,7 @@ General options:
 
 const COMMAND_HELP: Record<string, string> = {
   init: `Usage: flashlearn init [directory] [options]\n\nOptional: create empty .flashlearn storage. Generate performs this step automatically.`,
-  generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate at most 100 cards per run. No separate init is needed.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Limit eligible files after importance ranking\n  --copilot            Opt into Copilot generation (model: auto)\n  --copilot-model <name>  Override the model; implies --copilot`,
+  generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate at most 100 cards per run. Matching incomplete runs resume automatically.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Limit eligible files after importance ranking\n  --copilot            Opt into Copilot generation (model: auto)\n  --copilot-model <name>  Override the model; implies --copilot\n  --fresh              Discard matching checkpoint and start over`,
   start: `Usage: flashlearn start [directory] [options]\n\nStart the local learning server. Offer generation if the deck is empty.\n\nOptions:\n  --host <host>  Host to bind (default: localhost)\n  --port <port>  Port to bind (default: 4173)\n  -y, --yes     Approve empty-deck generation (may use the configured AI endpoint)`,
   project: `Usage: flashlearn project <command> [options]\n\nCommands:\n  show    Show this invocation's project directory\n  status  Show project learning status\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
   "project show": `Usage: flashlearn project show [options]\n\nShow this invocation's project directory.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
@@ -248,6 +249,9 @@ async function generateForStudy(service: CliWorkstream, io: CliIO, directory: st
   let cards: Card[];
   try {
     cards = await service.generate(directory, io.progress ? { ...options, onProgress } : options);
+  } catch (error) {
+    io.progress?.({ ...current, phase: "paused" });
+    throw error;
   } finally {
     if (timer) clearInterval(timer);
   }
@@ -357,7 +361,10 @@ function parseGenerate(args: string[]): { directory?: string; options: GenerateO
   const options: GenerateOptions = {};
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
-    if (arg === "--copilot") {
+    if (arg === "--fresh") {
+      if (options.fresh) throw new UsageError("Specify --fresh only once");
+      options.fresh = true;
+    } else if (arg === "--copilot") {
       options.provider = { kind: "copilot" };
     } else if (arg === "--copilot-model") {
       if (options.copilotModel !== undefined) throw new UsageError("Specify --copilot-model only once");

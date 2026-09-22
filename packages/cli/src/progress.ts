@@ -15,6 +15,6 @@ export function generationProgress(write: (value: string) => void, tty: boolean)
     const bar = `[${"=".repeat(filled)}${" ".repeat(20 - filled)}]`;
     const line = `${bar} ${progress.phase} ${progress.completed}/${progress.total || "?"} | ${progress.cards}/100 cards | ${((now - started) / 1000).toFixed(1)}s`;
     if (progress.message) write(`${tty ? "\r\u001b[2K" : ""}${progress.message}\n`);
-    write(`${tty ? "\r\u001b[2K" : ""}${line}${!tty || progress.phase === "done" ? "\n" : ""}`);
+    write(`${tty ? "\r\u001b[2K" : ""}${line}${!tty || progress.phase === "done" || progress.phase === "paused" ? "\n" : ""}`);
   };
 }

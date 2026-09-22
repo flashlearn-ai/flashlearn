@@ -342,6 +342,16 @@ test("explicit Copilot flags select auto or the requested model without promptin
   assert.match(output.stderr.join("\n"), /unavailable on PATH/);
 });
 
+test("generate --fresh explicitly requests checkpoint replacement", async () => {
+  const cli: CliWorkstream = new RecordingCli();
+  cli.generate = async (_root, options) => {
+    assert.equal(options?.fresh, true);
+    return [];
+  };
+  assert.equal(await runCli(["generate", "--fresh"], cli, capture().io), 0);
+  assert.equal(await runCli(["generate", "--fresh", "--fresh"], cli, capture().io), 2);
+});
+
 test("generate can configure OpenAI with an in-memory API key", async () => {
   const output = capture();
   const cli = new RecordingCli();

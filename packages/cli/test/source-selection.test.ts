@@ -94,14 +94,13 @@ test("README is selected under a small file budget and AI failures do not add fi
   await writeFile(join(root, ".agents/a.md"), "# Agent rules\nAlways follow this irrelevant process advice when editing repositories.\n");
   await writeFile(join(root, "README.md"), "# Request routing\nThe router restores suspended workers before forwarding incoming requests.\n");
   let called = false;
-  const result = await generateBounded(root, { maxFiles: 1, provider: { kind: "copilot" } }, async (prompt) => {
+  await assert.rejects(generateBounded(root, { maxFiles: 1, provider: { kind: "copilot" } }, async (prompt) => {
     called = true;
     assert(prompt.includes("File 0: README.md"));
     assert(!prompt.includes("irrelevant process advice"));
     return null;
-  });
+  }), /retained.*resume only unfinished work/);
   assert(called);
-  assert.deepEqual(result, []);
 });
 
 test("HTTP providers use the same prompt path for Markdown and preserve API authentication", async () => {

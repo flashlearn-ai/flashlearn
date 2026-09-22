@@ -23,7 +23,7 @@ test("LLM categories are stored as first tags without altering question, answer 
     assert(prompt.includes(cards[0]!.answer));
     assert(prompt.includes("at least 5"));
     assert.equal(model, "auto");
-    assert.equal(timeout, 18_000);
+    assert.equal(timeout, 300_000);
     return reply();
   }, "auto");
   assert.deepEqual(result.map(({ tags }) => tags?.[0]), Array(5).fill("Actor Lifecycle").concat(Array(5).fill("Snapshot Persistence")));
@@ -42,10 +42,21 @@ test("category partitions reject undersized, missing, duplicate, invented and va
   assert.throws(() => applyCategories(cards, "not json"));
 });
 
+test("invalid categorization gets one repair attempt identifying missing IDs", async () => {
+  let calls = 0;
+  const result = await categorizeCards(cards, async (prompt) => {
+    if (calls++ === 0) return reply([groups[0]!]);
+    assert.match(prompt, /missing IDs: 5, 6, 7, 8, 9/);
+    return reply();
+  }, "auto");
+  assert.equal(calls, 2);
+  assert.equal(result.length, cards.length);
+});
+
 test("small decks and failed LLM grouping fail explicitly instead of inventing filler topics", async () => {
   await assert.rejects(categorizeCards(cards.slice(0, 4), async () => { assert.fail("no call for undersized deck"); }, "auto"), /at least five/);
-  await assert.rejects(categorizeCards(cards, async () => null, "auto"), /failed or timed out/);
-  await assert.rejects(categorizeCards(cards, async () => reply([groups[0]!]), "auto"), /no new cards were saved/);
+  await assert.rejects(categorizeCards(cards, async () => null, "auto"), /returned no reply/);
+  await assert.rejects(categorizeCards(cards, async () => reply([groups[0]!]), "auto"), /no new study cards were saved/);
 });
 
 test("production storage persists category tags and exposes them through the card repository", async (t) => {

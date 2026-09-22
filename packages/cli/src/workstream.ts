@@ -65,6 +65,7 @@ export class CliService implements CliWorkstream {
       options?.onProgress?.({ phase: "saving", completed: cards.length, total: generatedCards.length, cards: cards.length });
     }
 
+    await this.dependencies.completeGeneration?.(root, options);
     options?.onProgress?.({ phase: "done", completed: cards.length, total: cards.length, cards: cards.length });
     return cards;
   }

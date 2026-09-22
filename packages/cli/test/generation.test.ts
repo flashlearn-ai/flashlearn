@@ -50,8 +50,8 @@ test("Copilot batches pass the model/deadline and reject invented source IDs", a
     ].map((card) => ({ ...card, evidence: "A stable evidence quote supporting an answer.", goal: "invariant", concept: "Stable evidence" })) });
   });
   assert.deepEqual(cards.map((card) => card.source), [{ path: "a.ts", sha: "real-sha" }]);
-  assert.deepEqual(await copilotBatch(inputs, "auto", 1, async () => null), []);
-  assert.deepEqual(await copilotBatch(inputs, "auto", 1, async () => "invalid"), []);
+  await assert.rejects(copilotBatch(inputs, "auto", 1, async () => null), /empty reply/);
+  await assert.rejects(copilotBatch(inputs, "auto", 1, async () => "invalid"), /invalid card JSON/);
 });
 
 test("progress is a bar on a TTY and line-based without terminal escapes otherwise", () => {

@@ -8,11 +8,13 @@ import type { CliDependencies } from "./dependencies.js";
 import { flashlearnRoot } from "./paths.js";
 import { readProjectName } from "./project-name.js";
 import { generateBounded } from "./generation.js";
+import { completeGeneration } from "./generation-checkpoint.js";
 
 export function createProductionDependencies(): CliDependencies {
   return {
     initializeStore,
     generateCards: generateBounded,
+    completeGeneration,
     createCardRepository: (root) => new JsonCardRepository(join(flashlearnRoot(root), "cards.json")),
     createReviewRepository: (root) => new JsonReviewRepository(join(flashlearnRoot(root), "review.json")),
     scheduleReview,
