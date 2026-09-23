@@ -46,7 +46,7 @@ Run `flashlearn <command> --help` for details.
 **Migration:** `FLASHLEARN_PROJECT` and old saved user configuration are ignored
 and left untouched. `project set` has been removed and exits 2 with migration
 guidance. Positional directories still work for `init [directory]`,
-`generate [directory]`, and `start [directory]`, but cannot be combined with
+`generate [directory]`, `start [directory]`, and `review [directory]`, but cannot be combined with
 `--project`. Repeated project flags are invalid.
 
 ## Empty decks and scoped generation
@@ -80,6 +80,23 @@ upserts without pruning existing cards outside the scan. Producing zero cards
 can succeed if a previous deck remains; no available study cards means exit 1.
 Exit codes are 0 for success, 1 for operation failure, and 2 for invalid arguments.
 
+## Terminal study
+
+Run `flashlearn review --project /path/to/repository` to review in a multiple-choice TUI.
+Choose a numbered answer (1–4) from up to four shuffled deck answers, with same-topic
+or same-source alternatives preferred. Feedback reveals the correct answer and source;
+the result automatically saves as correct or incorrect. A confirmed save shows the
+next due date; Enter/Space continues. Q, Ctrl+C, or Ctrl+D quits. Quitting before
+selection leaves the current card unchanged. Decks need at least two distinct,
+nonempty answers; otherwise the session asks you to generate more cards and ends
+without scoring. Alternatives come from the deck rather than invented distractors.
+
+Sessions save up to 12 reviews, including immediately due repeats, using the
+same learning engine and `.flashlearn/review.json` as browser study. Future cards
+are excluded. Empty decks require `generate` first; a deck with nothing due reports
+“All caught up.” Save errors stop the session and exit 1. Interactive stdin and
+stderr are required. Terminal review needs no server or model calls.
+
 ## Live study
 
 The local UI uses `GET /api/cards/next` to select each due card on the server;
@@ -110,13 +127,25 @@ Keep that directory out of version control. The server binds to localhost by
 default on port 4173; use `start --host <host> --port 4180` to override the bind
 address and port. Wildcard hosts `0.0.0.0` and `::` are rejected.
 
-Setting both `FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` enables a
-chat-completions endpoint. Otherwise, interactive generation detects GitHub Copilot
-CLI and asks before using `copilot -p`, then offers OpenAI, Claude, custom endpoint,
-or deterministic extraction. Prompted API keys are held only for that command and
-are never persisted. Non-interactive runs clearly fall back to deterministic
-generation. Any selected AI provider receives code; its access controls and
-retention policy are separate from local repository permissions.
+Generation starts with an **INFERENCE SOURCE** step. Setting both
+`FLASHLEARN_ENDPOINT_URL` and `FLASHLEARN_ENDPOINT_MODEL` selects the configured
+chat-completions endpoint. Otherwise, one menu offers Copilot (with PATH detection),
+OpenAI, Claude, custom endpoint, or offline heuristic.
+Copilot is the first/default choice when detected: press Enter to use it. Without
+Copilot, Enter selects heuristic. Noninteractive input never accepts the AI default.
+Use
+`generate --inference-source openai|claude|custom|heuristic|copilot` to override the
+source for a command. OpenAI/Claude prompt for a masked API key and model; custom
+accepts a full HTTP(S) chat-completions URL, model, optional key and authentication
+header. Prompted keys stay in memory only. Blank required settings cancel to
+offline; invalid URLs or source names fail with guidance. Noninteractive runs
+without configured inference use offline extraction. AI providers receive source
+excerpts under their own access controls and retention policies.
+
+Offline heuristic cards use complete definitions, explanatory paragraphs and code
+comments. Procedural sections, badges, tool/demo docs and dangling fragments are
+omitted. Answers are extracted from source rather than synthesized; this mode
+has no LLM categories and may produce a smaller deck.
 
 The GitHub Pages showcase uses only public hand-authored samples in multiple-choice
 sessions of up to 12 cards. Selected topics share the slots, with the starting topic

@@ -6,6 +6,7 @@ import type { Card } from "../../../contracts/index.js";
 import type { GenerateOptions } from "../src/dependencies.js";
 
 class RecordingCli implements CliWorkstream {
+  async study(): Promise<never> { throw new Error("Not configured"); }
   calls: Array<{ method: string; root: string; options?: StartOptions }> = [];
 
   async initialize(root: string): Promise<void> {
@@ -154,7 +155,7 @@ test("guides first-time users from init to generate", async () => {
   ]);
 });
 
-test("guides users from generation to start", async () => {
+test("guides users from generation to browser or terminal review", async () => {
   const output = capture();
   assert.equal(await runCli(["generate", "demo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
@@ -164,6 +165,8 @@ test("guides users from generation to start", async () => {
     "Next:",
     "  # Start the local learning experience",
     "  flashlearn start --project '/project/demo'",
+    "  # Or review directly in your terminal",
+    "  flashlearn review --project '/project/demo'",
   ]);
 });
 
@@ -309,15 +312,15 @@ test("generate offers a detected Copilot CLI and passes the selection", async ()
   const output = capture();
   const cli = new RecordingCli();
   cli.generate = async (_root, options) => {
-    assert.deepEqual(options, { provider: { kind: "copilot" } });
+    assert.deepEqual(options, { provider: { kind: "copilot", model: "auto" } });
     return [];
   };
   const io = {
     ...output.io,
     detectCopilot: async () => true,
-    confirm: async (message: string) => {
-      assert.match(message, /copilot -p/);
-      return true;
+    prompt: async (message: string) => {
+      assert.match(message, /Inference source/);
+      return "copilot";
     },
   };
 
@@ -393,7 +396,7 @@ test("incomplete provider setup clearly falls back to deterministic generation",
 
   assert.equal(await runCli(["generate"], cli, io), 0);
   assert.match(output.stderr.join("\n"), /Falling back to deterministic generation/);
-  assert.match(output.stderr.join("\n"), /no source code will be sent/);
+  assert.match(output.stderr.join("\n"), /No source code will be sent/);
 });
 
 test("configured endpoint skips interactive provider setup", async () => {

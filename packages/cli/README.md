@@ -19,7 +19,7 @@ flashlearn project show --project /path/to/repo
 
 **Migration:** `FLASHLEARN_PROJECT` and the old user config are no longer read or written. Existing config files are left untouched. `project set` returns exit code 2 with migration guidance. `project show` remains available and shows this invocation's directory. `init` only initializes storage; it does not select a project for future commands.
 
-Positional directories remain compatibility aliases for `init [directory]`, `generate [directory]`, and `start [directory]`. Supplying both a positional directory and `--project` is an argument error. Query commands use `--project` only.
+Positional directories work for `init [directory]`, `generate [directory]`, `start [directory]`, and `review [directory]`. Supplying both a positional directory and `--project` is an argument error. Query commands use `--project` only.
 
 Commands print `Project: /absolute/path` to stderr before work. Help/version remain quiet. Query stdout stays parseable.
 
@@ -38,9 +38,36 @@ If `start` finds no cards, an interactive terminal asks whether to generate them
 
 Generation prints a progress message, the count generated and stored **(new or updated)**, and the total cards available for study. A run producing zero cards can succeed if a previous deck is still available. If no study cards are available afterward, `generate` exits 1 with guidance instead of suggesting startup. Generation upserts cards; it does not prune cards absent from the latest run.
 
-When no endpoint environment variables are configured, an interactive generation run checks whether `copilot` is on `PATH` and asks before using `copilot -p`. If Copilot is declined or unavailable, provider setup offers OpenAI, Claude, a custom OpenAI-compatible endpoint, or deterministic extraction. Prompted API keys live only for the current command and are not written to `.flashlearn/`. Non-interactive runs clearly fall back to deterministic extraction. Any AI choice sends supported source files to that provider.
+### Inference source
+
+Generation (including empty-deck `start`) begins with a dedicated **INFERENCE SOURCE** stage. When no endpoint environment configuration or explicit flag selects a provider, one menu offers **Copilot, OpenAI, Claude, Custom, or Heuristic**. Detected Copilot is listed first and is the interactive default: pressing Enter selects it, with the menu explaining that code/docs are sent to Copilot. If Copilot is unavailable, Enter selects offline heuristic. Missing/noninteractive input still selects offline, even when Copilot is installed; typing `heuristic` explicitly always selects offline. Unknown selections and invalid custom URLs fail with guidance instead of silently choosing another provider.
+
+```bash
+flashlearn generate --inference-source openai
+flashlearn generate --inference-source claude
+flashlearn generate --inference-source custom
+flashlearn generate --inference-source heuristic
+```
+
+OpenAI prompts for a masked API key and model (default `gpt-4o-mini`); Claude uses a masked Anthropic key and model (default `claude-sonnet-4-5`). Custom accepts a full HTTP(S) OpenAI-compatible chat-completions URL, model, optional key and header name (`Authorization` by default; `api-key` for raw-key auth). URLs with embedded credentials and invalid HTTP header names are rejected. Prompted keys are used only for the current command and never written to disk or printed in summaries. Blank required settings cancel into the clearly labeled offline mode. A valid key is not a connectivity check; provider errors are reported during inference.
+
+Without a flag, complete `FLASHLEARN_ENDPOINT_URL` / `FLASHLEARN_ENDPOINT_MODEL` configuration retains precedence and is announced in this stage. `--inference-source` overrides it for one invocation; `--copilot` / `--copilot-model` remain shortcuts and cannot conflict with another source flag. Noninteractive runs without endpoint configuration or explicit Copilot opt-in use the offline heuristic. Interactive key entry requires a terminal; configure endpoint environment variables for automation.
 
 Successful lifecycle commands print a `Next:` block with a shell comment and a copyable, quoted command carrying `--project`.
+
+## Terminal review
+
+```bash
+flashlearn review --project /path/to/repo
+```
+
+Review due cards directly in a scrollback-friendly multiple-choice TUI. Select a numbered answer with **1–4**. Each question offers up to four shuffled, distinct answers from your deck, preferring distractors from the same topic or source. Selection reveals the correct answer and source and automatically saves **correct** or **incorrect**. After a confirmed save, the learning engine's next due date is shown; press **Enter/Space** for the next card. **Q**, **Ctrl+C**, or **Ctrl+D** ends the session. Quitting before a selection leaves the card unchanged.
+
+At least two distinct, nonempty deck answers are needed. Smaller or duplicate-only decks show guidance to generate more cards and end without scoring; the TUI never invents distractors or substitutes a freeform/recall question. Deck-derived alternatives are a heuristic, not independently authored wrong answers.
+
+Each session saves at most **12 reviews**, including immediately due incorrect-card repeats. Selection and scheduling use the same services and `.flashlearn/review.json` as the browser. Future cards are excluded. An empty deck asks you to run `generate`; an existing deck with nothing due reports “All caught up.” Save failures stop the session and return exit code 1. Successful sessions and quitting return 0.
+
+Interactive stdin and stderr are required; redirected input exits 1 with guidance. The TUI uses single keys, restores terminal mode on exit, and displays plain source text without interpreting terminal control sequences. It runs locally with no server or model calls. `src/terminal-review.ts` owns presentation; `CliService.study()` shares the browser's repository and learning composition.
 
 ## Extraction scope
 
@@ -77,7 +104,15 @@ If fewer than five AI cards survive, or category inference fails or returns an i
 
 Each AI candidate must include a learning objective and a verbatim evidence quote from its cited excerpt. Quotes from another file or invented IDs are rejected; path and SHA are assigned locally. Evidence matching establishes textual support, **not semantic proof of the whole answer**. Documentation-derived questions name their document; documents marked aspirational get an explicit design-status qualification. Stale documentation and model errors still warrant human review.
 
-Quality checks reject vague helper/heading questions, constants/locator trivia, incomplete or truncated answers, and detectable list-count mismatches. Ranked candidates favor architectural foundations and reasoning; token-overlap/concept heuristics remove near-duplicate questions/answers and cap dominance at eight cards per file and 25 per subsystem. These are heuristics, not perfect semantic deduplication. **100 is a maximum, not a target: no deterministic filler is added in AI mode.** Offline deterministic mode uses the same source selection and ranking on up to 80 important files, with explicitly labeled section/doc-comment recall.
+Quality checks reject vague helper/heading questions, constants/locator trivia, incomplete or truncated answers, and detectable list-count mismatches. Ranked candidates favor architectural foundations and reasoning; token-overlap/concept heuristics remove near-duplicate questions/answers and cap dominance at eight cards per file and 25 per subsystem. These are heuristics, not perfect semantic deduplication. **100 is a maximum, not a target: no deterministic filler is added in AI mode.**
+
+### Offline heuristic quality
+
+Offline mode extracts complete definitions, short explanatory paragraphs and documented code responsibilities from up to 80 ranked files. It preserves paragraph/list-item boundaries, skips fenced code, tables, procedures, badges, demo/tool docs and context-dependent fragments, and uses sentence segmentation rather than cutting at a character budget. Questions identify a defined term, reuse an actual question heading, or ask about the documented responsibility/constraint. Answers remain extractive; architectural claims in aspirational documents are labeled as design intent. This is useful recall from documentation, not inferred understanding or LLM-generated categories.
+
+Passages containing implementation caveats or constraints are kept whole or rejected if incomplete/too long; late qualifications are not dropped to shorten an answer. JSDoc summaries are separated from annotation blocks and their continuation lines, while deprecated or qualified annotation content is conservatively rejected. Distinct paragraph subjects get distinct questions; when no subject is recoverable, one representative passage per heading is chosen deliberately, preferring constraints and rationale.
+
+Substrate experiment (same committed source and file budget): the previous heuristic saved 100 cards, including 69 generic “what is explained about” prompts, 28 tool/demo cards, 2 badge answers and 9 detected dangling-list/Flags fragments. The reviewed tuned pass saved 51 cards in about three seconds, with zero of those markers, eight glossary cards instead of two, and average answer length 241 instead of 308 characters. These counts are quality proxies, not accuracy scores; source claims can still be stale and templates remain mechanical. Reproduce the comparison after building with `node packages/cli/scripts/evaluate-heuristic.mjs /path/to/repo`.
 
 This is bounded coverage, not exhaustive analysis. Runs may take several minutes; retaining useful work takes priority over a one-minute target.
 

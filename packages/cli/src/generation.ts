@@ -1,4 +1,4 @@
-import { deterministicExtractor, endpointConfigFromEnv, ExtractionService, type SourceDocument } from "@flashlearn/extraction";
+import { endpointConfigFromEnv, ExtractionService, type SourceDocument } from "@flashlearn/extraction";
 import type { GeneratedCard } from "../../../contracts/index.js";
 import { MAX_GENERATED_CARDS, type GenerateOptions, type StudyGeneratedCard } from "./dependencies.js";
 import { categorizeCards } from "./categories.js";
@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { checkpointPath, loadCheckpoint, checkpointWriter, type GenerationCheckpoint } from "./generation-checkpoint.js";
 import { INFERENCE_TIMEOUT_MS } from "./providers.js";
 import { duration } from "./progress.js";
+import { heuristicCards } from "./heuristic.js";
 
 /** Source traversal/attribution remain owned by extraction; CLI plans bounded inference. */
 export async function generateBounded(root: string, options: GenerateOptions = {}, run?: typeof runCopilot): Promise<StudyGeneratedCard[]> {
@@ -106,23 +107,16 @@ export async function generateBounded(root: string, options: GenerateOptions = {
 }
 
 async function deterministicCards(documents: SourceDocument[], options: GenerateOptions): Promise<GeneratedCard[]> {
-  const extractor = deterministicExtractor();
   const candidates: Candidate[] = [];
   let completed = 0;
   for (let i = 0; i < Math.min(documents.length, 80); i += 8) {
     const wave = documents.slice(i, Math.min(i + 8, 80));
-    candidates.push(...(await Promise.all(wave.map((document) => extractor.extract(document)))).flat());
+    candidates.push(...wave.flatMap(heuristicCards));
     completed += wave.length;
     options.onProgress?.({ phase: "generating", unit: "files", completed, total: Math.min(documents.length, 80), cards: selectCards(candidates).cards.length });
   }
-  // Deterministic doc questions remain section recall, clearly labeled as such.
-  // Avoid vague headings and incomplete answers rather than inventing meaning.
-  for (const card of candidates) {
-    const heading = /^What does "(.+)" cover\?$/.exec(card.question)?.[1];
-    if (heading) card.question = `According to ${card.source.path}, what is explained about ${heading}?`;
-  }
   const selected = selectCards(candidates);
   options.onProgress?.({ phase: "reviewing", unit: "cards", completed: candidates.length, total: candidates.length, cards: selected.cards.length,
-    message: `Deterministic section/doc-comment recall: ${selected.cards.length} cards; ${selected.rejected} rejected. AI synthesis is disabled.` });
+    message: `Offline heuristic: ${selected.cards.length} extractive cards; ${selected.rejected} rejected. Complete definitions and explanatory prose only; no LLM synthesis or categories.` });
   return selected.cards;
 }

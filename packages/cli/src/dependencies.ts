@@ -25,6 +25,7 @@ export type GenerateOptions = {
   copilotModel?: string;
   onProgress?: (progress: GenerationProgress) => void;
   fresh?: boolean;
+  inferenceSource?: "copilot" | "openai" | "claude" | "custom" | "heuristic";
 };
 
 export const MAX_GENERATED_CARDS = 100;

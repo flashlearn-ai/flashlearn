@@ -2,10 +2,12 @@ import { isAbsolute, resolve, sep } from "node:path";
 import { flashlearnRoot } from "./paths.js";
 import type { Card } from "../../../contracts/index.js";
 import type { CliWorkstream, ProjectStatus, StartOptions } from "./workstream.js";
-import type { GenerationProvider, GenerateOptions, GenerationProgress } from "./dependencies.js";
+import type { GenerateOptions, GenerationProgress } from "./dependencies.js";
 import { toYaml } from "./yaml.js";
+import { selectInferenceSource } from "./inference-source.js";
+import { reviewInTerminal, type ReviewTerminal } from "./terminal-review.js";
 
-export const CLI_VERSION = "0.4.0";
+export const CLI_VERSION = "0.5.0";
 
 export const HELP = `Usage: flashlearn <command> [directory] [options]
 
@@ -13,6 +15,7 @@ Commands:
   init [directory]       Create empty storage (optional)
   generate [directory]   Initialize storage and generate cards
   start [directory]      Start the local learning server
+  review [directory]     Review due cards in the terminal
   project show            Show this invocation's project directory
   project status          Show project learning status
   question list           List generated questions
@@ -29,6 +32,7 @@ Generate options:
   --copilot              Use Copilot for this run (explicit opt-in)
   --copilot-model <name>  Copilot model (default: auto; implies --copilot)
   --fresh                Discard matching generation checkpoint and start over
+  --inference-source <name>  copilot, openai, claude, custom, or heuristic
 
 Query options:
   -o, --output <format>   Output as text, json, or yaml (default: text)
@@ -39,8 +43,9 @@ General options:
   -v, --version           Show version`;
 
 const COMMAND_HELP: Record<string, string> = {
+  review: `Usage: flashlearn review [directory] [options]\n\nReview up to 12 due cards with multiple choice in an interactive terminal. Choose a numbered answer (1–4); correct/incorrect results save automatically. Enter/Space continues after feedback. Q or Ctrl+C quits. Uses the same schedule as browser reviews. Requires at least two distinct deck answers; run generate first for an empty deck.`,
   init: `Usage: flashlearn init [directory] [options]\n\nOptional: create empty .flashlearn storage. Generate performs this step automatically.`,
-  generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate at most 100 cards per run. Matching incomplete runs resume automatically.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Limit eligible files after importance ranking\n  --copilot            Opt into Copilot generation (model: auto)\n  --copilot-model <name>  Override the model; implies --copilot\n  --fresh              Discard matching checkpoint and start over`,
+  generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate at most 100 cards per run. Matching incomplete runs resume automatically.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Limit eligible files after importance ranking\n  --inference-source <name>  copilot, openai, claude, custom, or heuristic\n  --copilot            Opt into Copilot generation (model: auto)\n  --copilot-model <name>  Override the model; implies --copilot\n  --fresh              Discard matching checkpoint and start over`,
   start: `Usage: flashlearn start [directory] [options]\n\nStart the local learning server. Offer generation if the deck is empty.\n\nOptions:\n  --host <host>  Host to bind (default: localhost)\n  --port <port>  Port to bind (default: 4173)\n  -y, --yes     Approve empty-deck generation (may use the configured AI endpoint)`,
   project: `Usage: flashlearn project <command> [options]\n\nCommands:\n  show    Show this invocation's project directory\n  status  Show project learning status\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
   "project show": `Usage: flashlearn project show [options]\n\nShow this invocation's project directory.\n\nOptions:\n  -o, --output <format>  text, json, or yaml`,
@@ -59,6 +64,7 @@ export type CliIO = {
   detectCopilot?(): Promise<boolean>;
   endpointConfigured?: boolean;
   progress?(progress: GenerationProgress): void;
+  openReviewTerminal?(): ReviewTerminal;
 };
 
 class UsageError extends Error {}
@@ -133,12 +139,22 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
         io.stdout("  # Generate study cards from this repository");
         io.stdout(`  flashlearn generate --project ${quoteArgument(directory)}`);
       } else {
-        if (!await generateForStudy(service, io, directory, await generationOptions(io, options))) return 1;
+        if (!await generateForStudy(service, io, directory, await selectInferenceSource(io, options))) return 1;
         io.stdout("");
         io.stdout("Next:");
         io.stdout("  # Start the local learning experience");
         io.stdout(`  flashlearn start --project ${quoteArgument(directory)}`);
+        io.stdout("  # Or review directly in your terminal");
+        io.stdout(`  flashlearn review --project ${quoteArgument(directory)}`);
       }
+      return 0;
+    }
+    if (command === "review") {
+      const directory = workflowDirectory(parseDirectoryOnly(commandArgs), parsed.directory, io.cwd);
+      io.stderr(`Project: ${directory}`);
+      if (!io.openReviewTerminal) throw new Error("Terminal review requires an interactive terminal.");
+      const services = await service.study(directory);
+      await reviewInTerminal(services, io.openReviewTerminal());
       return 0;
     }
     if (command === "start") {
@@ -153,7 +169,7 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
           io.stderr(`Required first step:\n  ${generateCommand}\nThen:\n  flashlearn start --project ${quoteArgument(directory)}\nOr approve empty-deck generation with start --yes.`);
           return 1;
         }
-        if (!await generateForStudy(service, io, directory, await generationOptions(io))) return 1;
+        if (!await generateForStudy(service, io, directory, await selectInferenceSource(io))) return 1;
       }
       await service.start(directory, options);
       const url = `http://${options.host ?? "localhost"}:${options.port ?? 4173}`;
@@ -176,73 +192,10 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
   }
 }
 
-async function generationOptions(io: CliIO, options: GenerateOptions = {}): Promise<GenerateOptions> {
-  if (options.provider?.kind === "copilot") {
-    if (!await io.detectCopilot?.()) throw new Error("Copilot CLI is unavailable on PATH. Install/authenticate Copilot or omit --copilot for provider setup.");
-    const model = options.copilotModel ?? "auto";
-    io.stderr(`Using GitHub Copilot CLI (model: ${model}). Up to 100 cards; code is sent to Copilot.`);
-    return { ...options, provider: { kind: "copilot", model } };
-  }
-  if (io.endpointConfigured) {
-    io.stderr("Using the configured inference endpoint.");
-    return options;
-  }
-
-  if (io.confirm && await io.detectCopilot?.()) {
-    const approved = await io.confirm("GitHub Copilot CLI was found on PATH. Use `copilot -p` to generate cards from source files? [y/N] ");
-    if (approved) {
-      io.stderr("Using GitHub Copilot CLI for code card generation (model: auto; up to 100 cards).");
-      return { ...options, provider: { kind: "copilot" } };
-    }
-  }
-
-  if (!io.prompt) return deterministicOptions(io, options, "No interactive provider setup is available.");
-  const choice = (await io.prompt("Generation provider [deterministic/openai/claude/custom] (default deterministic): "))?.trim().toLowerCase();
-  if (!choice || choice === "deterministic") return deterministicOptions(io, options, "Deterministic generation selected.");
-
-  let provider: GenerationProvider | null = null;
-  if (choice === "openai") {
-    const apiKey = await requiredSecret(io, "OpenAI API key (current run only): ");
-    const model = await withDefault(io, "OpenAI model [gpt-4o-mini]: ", "gpt-4o-mini");
-    if (apiKey && model) provider = { kind: "endpoint", url: "https://api.openai.com/v1/chat/completions", model, apiKey };
-  } else if (choice === "claude") {
-    const apiKey = await requiredSecret(io, "Anthropic API key (current run only): ");
-    const model = await withDefault(io, "Claude model [claude-sonnet-4-5]: ", "claude-sonnet-4-5");
-    if (apiKey && model) provider = { kind: "anthropic", apiKey, model };
-  } else if (choice === "custom") {
-    const url = (await io.prompt("OpenAI-compatible chat-completions URL: "))?.trim();
-    const model = (await io.prompt("Model or deployment name: "))?.trim();
-    const apiKey = (await io.prompt("API key (optional, current run only): ", true))?.trim();
-    const authHeader = apiKey ? (await withDefault(io, "Authentication header [Authorization]: ", "Authorization")) : null;
-    if (url && model) {
-      if (!apiKey) provider = { kind: "endpoint", url, model };
-      else if (authHeader) provider = { kind: "endpoint", url, model, apiKey, authHeader };
-    }
-  } else {
-    return deterministicOptions(io, options, `Unknown provider "${choice}".`);
-  }
-
-  if (!provider) return deterministicOptions(io, options, "Provider setup was incomplete.");
-  io.stderr("Using the selected AI provider. Source files will be sent to that provider; the API key will not be saved.");
-  return { ...options, provider };
-}
-
-async function requiredSecret(io: CliIO, message: string): Promise<string | null> {
-  return (await io.prompt?.(message, true))?.trim() || null;
-}
-
-async function withDefault(io: CliIO, message: string, fallback: string): Promise<string | null> {
-  const value = await io.prompt?.(message);
-  return value === null || value === undefined ? null : value.trim() || fallback;
-}
-
-function deterministicOptions(io: CliIO, options: GenerateOptions, reason: string): GenerateOptions {
-  io.stderr(`${reason} Falling back to deterministic generation; no source code will be sent to an AI provider.`);
-  return { ...options, provider: { kind: "deterministic" } };
-}
-
 async function generateForStudy(service: CliWorkstream, io: CliIO, directory: string, options?: GenerateOptions): Promise<boolean> {
-  io.stderr("\nGENERATE STUDY CARDS\n  Maximum: 100 new/updated cards\n  AI calls: up to 15 minutes each; completed batches are checkpointed\n  Long runs are supported; elapsed progress updates while waiting.");
+  io.stderr(`\nGENERATE STUDY CARDS\n  Maximum: 100 new/updated cards\n${options?.provider?.kind === "deterministic"
+    ? "  Mode: offline heuristic — complete source prose; no model calls or AI checkpoint"
+    : "  AI calls: up to 15 minutes each; completed batches are checkpointed\n  Long runs are supported; elapsed progress updates while waiting."}`);
   let current: GenerationProgress = { phase: "scanning", completed: 0, total: 0, cards: 0 };
   const onProgress = (progress: GenerationProgress) => { current = { ...progress, message: undefined }; io.progress?.(progress); };
   const timer = io.progress ? setInterval(() => io.progress?.(current), 1_000) : undefined;
@@ -361,7 +314,12 @@ function parseGenerate(args: string[]): { directory?: string; options: GenerateO
   const options: GenerateOptions = {};
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
-    if (arg === "--fresh") {
+    if (arg === "--inference-source") {
+      if (options.inferenceSource !== undefined) throw new UsageError("Specify --inference-source only once");
+      const source = requireValue(args, ++index, arg);
+      if (!["copilot", "openai", "claude", "custom", "heuristic"].includes(source)) throw new UsageError("--inference-source must be copilot, openai, claude, custom, or heuristic");
+      options.inferenceSource = source as GenerateOptions["inferenceSource"];
+    } else if (arg === "--fresh") {
       if (options.fresh) throw new UsageError("Specify --fresh only once");
       options.fresh = true;
     } else if (arg === "--copilot") {
@@ -389,6 +347,7 @@ function parseGenerate(args: string[]): { directory?: string; options: GenerateO
       positional.push(arg);
     }
   }
+  if (options.provider?.kind === "copilot" && options.inferenceSource && options.inferenceSource !== "copilot") throw new UsageError("--copilot/--copilot-model cannot be combined with another --inference-source");
   return { directory: parseDirectoryOnly(positional), options };
 }
 

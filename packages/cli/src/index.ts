@@ -5,6 +5,7 @@ import { CliService } from "./workstream.js";
 import { confirm, prompt } from "./confirm.js";
 import { detectCopilot } from "./copilot.js";
 import { generationProgress } from "./progress.js";
+import { openReviewTerminal } from "./terminal-review.js";
 
 const dependencies = createProductionDependencies();
 const service = new CliService(dependencies);
@@ -14,6 +15,7 @@ process.exitCode = await runCli(process.argv.slice(2), service, {
   stderr: (message) => console.error(message),
   confirm,
   prompt,
+  openReviewTerminal,
   detectCopilot,
   progress: generationProgress((value) => process.stderr.write(value), Boolean(process.stderr.isTTY)),
   endpointConfigured: Boolean(process.env.FLASHLEARN_ENDPOINT_URL?.trim() && process.env.FLASHLEARN_ENDPOINT_MODEL?.trim()),

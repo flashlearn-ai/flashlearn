@@ -58,7 +58,7 @@ for (const initialized of [false, true]) {
       return true;
     };
     io.prompt = async (message) => {
-      assert.match(message, /Generation provider/);
+      assert.match(message, /Inference source/);
       events.push("select provider");
       return "deterministic";
     };
