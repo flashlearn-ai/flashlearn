@@ -9,8 +9,8 @@ const manifest = await releaseManifest();
  * enable it; local default builds omit it. Demo-only markup is fenced with
  * `<!--DEMO-->` so the artifact and the links to it are decided together and
  * cannot drift into a published link to a page that was never built. The
- * `<!--NODEMO-->` counterpart carries the markup that replaces it, so the hero
- * keeps exactly one primary call to action either way. */
+ * `<!--NODEMO-->` counterpart supports fallback content. The hero install box
+ * is available in both builds. */
 const withDemo = process.argv.includes("--demo");
 const DEMO_BLOCK = /<!--DEMO-->[\s\S]*?<!--\/DEMO-->/g;
 const NODEMO_BLOCK = /<!--NODEMO-->[\s\S]*?<!--\/NODEMO-->/g;

@@ -100,6 +100,18 @@ test("exits 2 when arguments are missing", async () => {
   assert.match(result.output, /Usage:/);
 });
 
+test("package README cleanup can accompany one implementation package", async () => {
+  const root = await repository();
+  git(root, "checkout", "-q", "-b", "docs");
+  await commitFile(root, "packages/extraction/README.md", "Extraction\n");
+  await commitFile(root, "packages/storage/README.md", "Storage\n");
+  assert.equal(checkScope(root, "main", "docs").code, 0);
+  await commitFile(root, "packages/frontend/test/site.test.ts", "export {};\n");
+  assert.equal(checkScope(root, "main", "docs").code, 0);
+  await commitFile(root, "packages/storage/docs/design.md", "Storage design\n");
+  assert.equal(checkScope(root, "main", "docs").code, 1);
+});
+
 test("exits 2 when a ref cannot be resolved", async () => {
   const root = await repository();
 

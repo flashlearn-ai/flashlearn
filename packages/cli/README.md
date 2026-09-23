@@ -1,6 +1,4 @@
-# CLI Workstream
-
-**Owner:** David
+# CLI
 
 The CLI is the composition root. `CliService` in `src/workstream.ts` orchestrates services, `runCli` in `src/cli.ts` parses commands and formats output, and `src/production.ts` adapts the four package implementations through CLI-owned dependency interfaces.
 

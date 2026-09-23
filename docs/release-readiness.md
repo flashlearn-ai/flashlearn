@@ -93,7 +93,7 @@ The allowlisted tarball contains no workspace sources, development tooling, Husk
 - Queries support `-o, --output text|json|yaml`. Project diagnostics and generation progress go to stderr. For source-runner JSON/YAML, use `npm --silent run cli -- project status --project /path/to/repo -o json`; the runner uses the repository root as cwd and ensures sibling build outputs are ready.
 - Offline extraction stays local. Interactive generation may detect and offer `copilot -p`, or collect current-run-only credentials for OpenAI, Claude, or a custom endpoint. It clearly calls out deterministic fallback. Any selected AI provider receives code and has access controls and retention separate from repository permissions.
 
-For stacked PRs, each documentation change must describe behavior available with that PR and its merged base. Document later frontend changes with their owning PR. Owner workstream completion requires the agreed deliverable to be completed and merged, not just passing tests.
+For stacked PRs, each documentation change must describe behavior available with that PR and its merged base. Document later changes with their corresponding PR; passing tests on a feature branch do not make a capability released. Contributor setup and package responsibilities are documented in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## npm account setup and first publication
 

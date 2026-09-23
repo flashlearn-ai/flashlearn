@@ -1,8 +1,8 @@
-# Extraction Workstream
+# Extraction
 
-**Owner:** Manasa
+Repository scanning, source extraction, and attributed card generation.
 
-Fill in `ExtractionService` in `src/workstream.ts`. Its three methods currently return empty collections so CLI and storage work can proceed before generation is complete.
+`ExtractionService` in `src/workstream.ts` scans supported files, runs injected extractors, and validates attributed cards. The CLI composes its public APIs with the generation pipeline described in the [CLI README](../cli/README.md).
 
 | Method | Expected behavior |
 | --- | --- |

@@ -1,6 +1,4 @@
-# Storage Workstream
-
-**Owner:** Sagar
+# Storage
 
 `StorageService` in `src/workstream.ts` is the injected boundary the CLI composes. It owns the `.flashlearn/` layout and returns JSON-backed repositories.
 
