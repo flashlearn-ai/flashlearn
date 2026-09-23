@@ -82,10 +82,14 @@ Exit codes are 0 for success, 1 for operation failure, and 2 for invalid argumen
 
 ## Terminal study
 
-Run `flashlearn review --project /path/to/repository` to review in a keyboard TUI.
-Press Enter/Space to reveal the answer and source, then 1 (incorrect), 2 (hard),
-3 (correct), or 4 (easy). A confirmed save shows the next due date; Enter/Space
-continues. Q, Ctrl+C, or Ctrl+D quits without rating the current card.
+Run `flashlearn review --project /path/to/repository` to review in a multiple-choice TUI.
+Choose a numbered answer (1–4) from up to four shuffled deck answers, with same-topic
+or same-source alternatives preferred. Feedback reveals the correct answer and source;
+the result automatically saves as correct or incorrect. A confirmed save shows the
+next due date; Enter/Space continues. Q, Ctrl+C, or Ctrl+D quits. Quitting before
+selection leaves the current card unchanged. Decks need at least two distinct,
+nonempty answers; otherwise the session asks you to generate more cards and ends
+without scoring. Alternatives come from the deck rather than invented distractors.
 
 Sessions save up to 12 reviews, including immediately due repeats, using the
 same learning engine and `.flashlearn/review.json` as browser study. Future cards

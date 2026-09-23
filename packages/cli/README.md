@@ -61,7 +61,9 @@ Successful lifecycle commands print a `Next:` block with a shell comment and a c
 flashlearn review --project /path/to/repo
 ```
 
-Review due cards directly in a scrollback-friendly keyboard TUI. Press **Enter/Space** to reveal the answer and source, then **1** incorrect, **2** hard, **3** correct, or **4** easy. After a confirmed save, the learning engine's next due date is shown; press Enter/Space for the next card. **Q**, **Ctrl+C**, or **Ctrl+D** ends the session. Unrated cards are not changed.
+Review due cards directly in a scrollback-friendly multiple-choice TUI. Select a numbered answer with **1–4**. Each question offers up to four shuffled, distinct answers from your deck, preferring distractors from the same topic or source. Selection reveals the correct answer and source and automatically saves **correct** or **incorrect**. After a confirmed save, the learning engine's next due date is shown; press **Enter/Space** for the next card. **Q**, **Ctrl+C**, or **Ctrl+D** ends the session. Quitting before a selection leaves the card unchanged.
+
+At least two distinct, nonempty deck answers are needed. Smaller or duplicate-only decks show guidance to generate more cards and end without scoring; the TUI never invents distractors or substitutes a freeform/recall question. Deck-derived alternatives are a heuristic, not independently authored wrong answers.
 
 Each session saves at most **12 reviews**, including immediately due incorrect-card repeats. Selection and scheduling use the same services and `.flashlearn/review.json` as the browser. Future cards are excluded. An empty deck asks you to run `generate`; an existing deck with nothing due reports “All caught up.” Save failures stop the session and return exit code 1. Successful sessions and quitting return 0.
 
