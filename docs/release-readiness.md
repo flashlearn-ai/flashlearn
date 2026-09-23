@@ -58,7 +58,7 @@ Feature-branch manual runs may build the site but cannot deploy. PR artifact che
 
 ## npm artifact
 
-`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.4.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
+`release/package.json` is the public manifest and release version source: `@flashlearnai/cli@0.5.0`, with the `flashlearn` executable and MIT licensing. The root and all implementation workspaces (including the internal `@flashlearn/cli` workspace) remain private. Publish the release tarball, not a workspace or repository directory.
 
 ```text
 .release/npm/

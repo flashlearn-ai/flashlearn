@@ -7,7 +7,7 @@ import { toYaml } from "./yaml.js";
 import { selectInferenceSource } from "./inference-source.js";
 import { reviewInTerminal, type ReviewTerminal } from "./terminal-review.js";
 
-export const CLI_VERSION = "0.4.0";
+export const CLI_VERSION = "0.5.0";
 
 export const HELP = `Usage: flashlearn <command> [directory] [options]
 
