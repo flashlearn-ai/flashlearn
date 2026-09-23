@@ -5,6 +5,7 @@ import type { CliWorkstream, ProjectStatus, StartOptions } from "./workstream.js
 import type { GenerateOptions, GenerationProgress } from "./dependencies.js";
 import { toYaml } from "./yaml.js";
 import { selectInferenceSource } from "./inference-source.js";
+import { reviewInTerminal, type ReviewTerminal } from "./terminal-review.js";
 
 export const CLI_VERSION = "0.4.0";
 
@@ -14,6 +15,7 @@ Commands:
   init [directory]       Create empty storage (optional)
   generate [directory]   Initialize storage and generate cards
   start [directory]      Start the local learning server
+  review [directory]     Review due cards in the terminal
   project show            Show this invocation's project directory
   project status          Show project learning status
   question list           List generated questions
@@ -41,6 +43,7 @@ General options:
   -v, --version           Show version`;
 
 const COMMAND_HELP: Record<string, string> = {
+  review: `Usage: flashlearn review [directory] [options]\n\nReview up to 12 due cards in an interactive terminal. Enter/Space reveals the answer; 1–4 rates it (incorrect, hard, correct, easy). Q or Ctrl+C quits. Saved ratings use the same schedule as browser reviews. Run generate first for an empty deck.`,
   init: `Usage: flashlearn init [directory] [options]\n\nOptional: create empty .flashlearn storage. Generate performs this step automatically.`,
   generate: `Usage: flashlearn generate [directory] [options]\n\nInitialize missing storage and generate at most 100 cards per run. Matching incomplete runs resume automatically.\n\nOptions:\n  --subpath <path>      Scan a repository-relative directory\n  --max-files <number>  Limit eligible files after importance ranking\n  --inference-source <name>  copilot, openai, claude, custom, or heuristic\n  --copilot            Opt into Copilot generation (model: auto)\n  --copilot-model <name>  Override the model; implies --copilot\n  --fresh              Discard matching checkpoint and start over`,
   start: `Usage: flashlearn start [directory] [options]\n\nStart the local learning server. Offer generation if the deck is empty.\n\nOptions:\n  --host <host>  Host to bind (default: localhost)\n  --port <port>  Port to bind (default: 4173)\n  -y, --yes     Approve empty-deck generation (may use the configured AI endpoint)`,
@@ -61,6 +64,7 @@ export type CliIO = {
   detectCopilot?(): Promise<boolean>;
   endpointConfigured?: boolean;
   progress?(progress: GenerationProgress): void;
+  openReviewTerminal?(): ReviewTerminal;
 };
 
 class UsageError extends Error {}
@@ -140,7 +144,17 @@ export async function runCli(args: string[], service: CliWorkstream, io: CliIO):
         io.stdout("Next:");
         io.stdout("  # Start the local learning experience");
         io.stdout(`  flashlearn start --project ${quoteArgument(directory)}`);
+        io.stdout("  # Or review directly in your terminal");
+        io.stdout(`  flashlearn review --project ${quoteArgument(directory)}`);
       }
+      return 0;
+    }
+    if (command === "review") {
+      const directory = workflowDirectory(parseDirectoryOnly(commandArgs), parsed.directory, io.cwd);
+      io.stderr(`Project: ${directory}`);
+      if (!io.openReviewTerminal) throw new Error("Terminal review requires an interactive terminal.");
+      const services = await service.study(directory);
+      await reviewInTerminal(services, io.openReviewTerminal());
       return 0;
     }
     if (command === "start") {

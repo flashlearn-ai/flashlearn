@@ -40,7 +40,7 @@ This map tracks completion of the agreed owner workstreams, not whether prototyp
    - **Features:** `init`, `generate`, `start`, `project show/status`, `question list/get`, per-invocation `--project`, structured output, scoped extraction, local server startup, orchestration, and integration tests
    - **Dependencies:** May depend on all packages
    - **Current:** Cwd-based project selection, text/JSON/YAML queries, auto-initializing generation with progress and a 100-card/run cap, bounded Copilot `auto` batching with model override, empty-deck startup confirmation, and extraction scope
-   - **Next:** Integrate completed owner packages as they merge
+   - **Next:** PR #59 adds inference-source selection, improved offline recall, and `review` terminal sessions with persisted ratings; integrate after review
 
 2. 🟢 **Extraction / AI generation** (`packages/extraction`)
    - **Status:** ✅ Done
@@ -265,6 +265,8 @@ AI generation finishes with an LLM category pass over the accepted questions and
 `project show/status` and `question list/get` accept `-o, --output text|json|yaml` (default text). See the [CLI README](packages/cli/README.md) for complete syntax.
 
 `flashlearn start` serves the browser client that `packages/frontend` builds into `client/dist`. The development runner ensures that build is ready; the npm release includes it. To work on the client with hot reload instead, run `npm run dev --workspace @flashlearn/frontend` on port 5173; it proxies `/api` to a `flashlearn start` server on port 4173, overridable with `FLASHLEARN_API`.
+
+On this branch, `flashlearn review --project /path/to/repo` reviews due cards in a keyboard TUI. Enter/Space reveals, 1–4 rates incorrect/hard/correct/easy, and Q or Ctrl+C quits. Sessions save up to 12 reviews using the same schedule as browser study. Run `generate` first; interactive stdin/stderr are required.
 
 Live study offers two ways in: **Study what’s due** takes each card from `GET /api/cards/next`, and **Choose topics** deals a session from the loaded deck, which is an early review rather than the due queue because that endpoint has no topic filter. Every card is dealt as multiple choice or as recall, mixed by default, with a **Mixed / Multiple choice / Recall only** control before a session starts. Answers come from the loaded deck; `GET /api/cards/:id` fetches a card that became due after that load. Rate each card incorrect, hard, correct, or easy. Each session allows up to 12 acknowledged reviews, including immediately due incorrect-card repeats. Saved schedules survive reloads; the transcript resets and future cards stay out of the due queue. A next-card `404` means no cards are due.
 

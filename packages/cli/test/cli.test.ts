@@ -6,6 +6,7 @@ import type { Card } from "../../../contracts/index.js";
 import type { GenerateOptions } from "../src/dependencies.js";
 
 class RecordingCli implements CliWorkstream {
+  async study(): Promise<never> { throw new Error("Not configured"); }
   calls: Array<{ method: string; root: string; options?: StartOptions }> = [];
 
   async initialize(root: string): Promise<void> {
@@ -154,7 +155,7 @@ test("guides first-time users from init to generate", async () => {
   ]);
 });
 
-test("guides users from generation to start", async () => {
+test("guides users from generation to browser or terminal review", async () => {
   const output = capture();
   assert.equal(await runCli(["generate", "demo"], new RecordingCli(), output.io), 0);
   assert.deepEqual(output.stdout, [
@@ -164,6 +165,8 @@ test("guides users from generation to start", async () => {
     "Next:",
     "  # Start the local learning experience",
     "  flashlearn start --project '/project/demo'",
+    "  # Or review directly in your terminal",
+    "  flashlearn review --project '/project/demo'",
   ]);
 });
 

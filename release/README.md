@@ -46,7 +46,7 @@ Run `flashlearn <command> --help` for details.
 **Migration:** `FLASHLEARN_PROJECT` and old saved user configuration are ignored
 and left untouched. `project set` has been removed and exits 2 with migration
 guidance. Positional directories still work for `init [directory]`,
-`generate [directory]`, and `start [directory]`, but cannot be combined with
+`generate [directory]`, `start [directory]`, and `review [directory]`, but cannot be combined with
 `--project`. Repeated project flags are invalid.
 
 ## Empty decks and scoped generation
@@ -79,6 +79,19 @@ Generation reports new or updated cards and the total available for study. It
 upserts without pruning existing cards outside the scan. Producing zero cards
 can succeed if a previous deck remains; no available study cards means exit 1.
 Exit codes are 0 for success, 1 for operation failure, and 2 for invalid arguments.
+
+## Terminal study
+
+Run `flashlearn review --project /path/to/repository` to review in a keyboard TUI.
+Press Enter/Space to reveal the answer and source, then 1 (incorrect), 2 (hard),
+3 (correct), or 4 (easy). A confirmed save shows the next due date; Enter/Space
+continues. Q, Ctrl+C, or Ctrl+D quits without rating the current card.
+
+Sessions save up to 12 reviews, including immediately due repeats, using the
+same learning engine and `.flashlearn/review.json` as browser study. Future cards
+are excluded. Empty decks require `generate` first; a deck with nothing due reports
+“All caught up.” Save errors stop the session and exit 1. Interactive stdin and
+stderr are required. Terminal review needs no server or model calls.
 
 ## Live study
 

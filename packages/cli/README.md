@@ -19,7 +19,7 @@ flashlearn project show --project /path/to/repo
 
 **Migration:** `FLASHLEARN_PROJECT` and the old user config are no longer read or written. Existing config files are left untouched. `project set` returns exit code 2 with migration guidance. `project show` remains available and shows this invocation's directory. `init` only initializes storage; it does not select a project for future commands.
 
-Positional directories remain compatibility aliases for `init [directory]`, `generate [directory]`, and `start [directory]`. Supplying both a positional directory and `--project` is an argument error. Query commands use `--project` only.
+Positional directories work for `init [directory]`, `generate [directory]`, `start [directory]`, and `review [directory]`. Supplying both a positional directory and `--project` is an argument error. Query commands use `--project` only.
 
 Commands print `Project: /absolute/path` to stderr before work. Help/version remain quiet. Query stdout stays parseable.
 
@@ -54,6 +54,18 @@ OpenAI prompts for a masked API key and model (default `gpt-4o-mini`); Claude us
 Without a flag, complete `FLASHLEARN_ENDPOINT_URL` / `FLASHLEARN_ENDPOINT_MODEL` configuration retains precedence and is announced in this stage. `--inference-source` overrides it for one invocation; `--copilot` / `--copilot-model` remain shortcuts and cannot conflict with another source flag. Noninteractive runs without endpoint configuration or explicit Copilot opt-in use the offline heuristic. Interactive key entry requires a terminal; configure endpoint environment variables for automation.
 
 Successful lifecycle commands print a `Next:` block with a shell comment and a copyable, quoted command carrying `--project`.
+
+## Terminal review
+
+```bash
+flashlearn review --project /path/to/repo
+```
+
+Review due cards directly in a scrollback-friendly keyboard TUI. Press **Enter/Space** to reveal the answer and source, then **1** incorrect, **2** hard, **3** correct, or **4** easy. After a confirmed save, the learning engine's next due date is shown; press Enter/Space for the next card. **Q**, **Ctrl+C**, or **Ctrl+D** ends the session. Unrated cards are not changed.
+
+Each session saves at most **12 reviews**, including immediately due incorrect-card repeats. Selection and scheduling use the same services and `.flashlearn/review.json` as the browser. Future cards are excluded. An empty deck asks you to run `generate`; an existing deck with nothing due reports “All caught up.” Save failures stop the session and return exit code 1. Successful sessions and quitting return 0.
+
+Interactive stdin and stderr are required; redirected input exits 1 with guidance. The TUI uses single keys, restores terminal mode on exit, and displays plain source text without interpreting terminal control sequences. It runs locally with no server or model calls. `src/terminal-review.ts` owns presentation; `CliService.study()` shares the browser's repository and learning composition.
 
 ## Extraction scope
 
