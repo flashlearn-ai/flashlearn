@@ -1,6 +1,6 @@
 # FlashLearn Agent Guide
 
-This file is the primary development context for coding agents working in this repository. Read it before editing code. See `README.md` for product and contributor context.
+This file is the primary development context for coding agents working in this repository. Read it before editing code. See `README.md` for the product overview and `CONTRIBUTING.md` for contributor setup and architecture.
 
 ## Product Goal
 
@@ -14,7 +14,7 @@ Directory/repository
   -> local UI
 ```
 
-The architecture is optimized for five contributors working independently. Stable contracts are more important than sharing implementation code.
+The architecture separates generation, persistence, scheduling, and presentation behind stable contracts. Package responsibilities are independent of individual contributors.
 
 ## Runtime And Tooling
 
@@ -44,7 +44,7 @@ Pin external GitHub Actions to full commit SHAs with a release-version comment. 
 
 GitHub CI exposes four independent statuses:
 
-- `CI / Only Edit One Package` validates that a change touches at most one directory under `packages/`. It compares against the merge base, so unrelated packages that land on `main` after a branch is cut do not count against it. The job needs full history (`fetch-depth: 0`).
+- `CI / Only Edit One Package` validates that implementation changes touch at most one directory under `packages/`. Package-root `README.md` files are exempt so overview documentation can be maintained together; all other package files count. It compares against the merge base, so unrelated packages that land on `main` after a branch is cut do not count against it. The job needs full history (`fetch-depth: 0`).
 - `CI / No Generated Content` rejects generated cards, ingested repository content, and credentials. It matches on path and on content, so a renamed card dump is still caught. The job needs full history (`fetch-depth: 0`).
 - `CI / Validate` runs `npm run check`.
 - `CI / Build` runs the whole-project build and compiled CLI smoke tests.
@@ -55,19 +55,19 @@ For stacked PRs, push with `FLASHLEARN_SCOPE_BASE=<parent-branch> git push` so t
 
 Generated cards and ingested repository content are local-only. `.gitignore` is not sufficient on its own because `git add -f` bypasses it, which is why the gate runs in CI. Legitimate sample data belongs under a `test/fixtures/` directory.
 
-## Ownership Boundaries
+## Package Boundaries
 
-| Owner | Package | Scope |
-| --- | --- | --- |
-| David | `packages/cli` | Commands, configuration, orchestration, startup, and integration |
-| Manasa | `packages/extraction` | Repository traversal, extraction, generated questions/answers, and source attribution |
-| Sagar | `packages/storage` | JSON persistence and repository implementations |
-| Jenny | `packages/learning` | Scheduling, review scoring, and next-card selection |
-| Sara | `packages/frontend` | HTTP handlers, card UI, user actions, and fake Teams experience |
+| Package | Scope |
+| --- | --- |
+| `packages/cli` | Commands, configuration, orchestration, terminal review, startup, and integration |
+| `packages/extraction` | Repository traversal, extraction, generated questions/answers, and source attribution |
+| `packages/storage` | JSON persistence and repository implementations |
+| `packages/learning` | Scheduling, review scoring, and next-card selection |
+| `packages/frontend` | HTTP handlers, card UI, user actions, and browser study experience |
 
-Default to editing only the package relevant to the task. Keep implementation, package configuration, and tests inside that package. Do not make opportunistic changes in other packages.
+Default to editing only the package relevant to the task. Keep implementation, package configuration, and tests inside that package. Coordinated package-root README edits may span packages; do not make opportunistic implementation changes in other packages.
 
-Shared paths require explicit cross-workstream intent:
+Shared paths require explicit cross-package intent:
 
 - `contracts/`
 - root `package.json` and `tsconfig.base.json`
@@ -80,10 +80,10 @@ Shared paths require explicit cross-workstream intent:
 The pipeline is a data handoff, not an import chain:
 
 ```text
-David -> Manasa -> Sagar -> Jenny -> Sara
+Source extraction -> card storage -> learning engine -> review interfaces
 ```
 
-Use dependency injection and package-local mocks when another workstream is unfinished. Do not bypass a contract by importing another package's internal files.
+Use dependency injection and package-local mocks to test each boundary. Do not bypass a contract by importing another package's internal files.
 
 ## Locked Contracts
 
@@ -100,7 +100,7 @@ The shared models are:
 
 Every card source must contain both repository-relative `path` and Git `sha`. Keep learning metadata separate from card generation.
 
-Every shared contract type must have exactly one semantic owner among the five packages, even though cross-package declarations remain physically in `contracts/`. Current ownership is: CLI owns `Card` and project-root resolution; extraction owns `GeneratedCard`; storage owns `.flashlearn/` contents and repository interfaces; learning owns `ReviewState` and `ReviewResult`; frontend owns HTTP request and response shapes. New contract types must be assigned to one package and shown inside that package's colored region in the README contract map. Keep the map readable in two dimensions: CLI is the orchestration layer above a left-to-right package pipeline. Use solid arrows for adjacent contract handoffs and dashed arrows for CLI composition; avoid other cross-links that tangle the diagram. Preserve the map legend: ⚙️ method, 🧩 type, 🌐 HTTP endpoint, and 📁 local storage.
+Every shared contract type must have exactly one semantic owner among the packages, even though cross-package declarations remain physically in `contracts/`. CLI owns `Card` and project-root resolution; extraction owns `GeneratedCard`; storage owns `.flashlearn/` contents and repository interfaces; learning owns `ReviewState` and `ReviewResult`; frontend owns HTTP request and response shapes. Document new responsibilities in the architecture table in `CONTRIBUTING.md`; keep the README architecture overview small and user-oriented.
 
 The locked endpoints are:
 
@@ -114,7 +114,7 @@ POST /api/review
 
 `GET /api/cards/next` must not expose the answer. `GET /api/cards/:id` reveals the complete card. JSON errors use `{ "error": "message" }`.
 
-Contract changes require coordinated review because all five workstreams may depend on them. When a task appears to require a contract change, first determine whether the behavior can be implemented behind the existing interface. If not, keep the change small, update both contract documentation and affected tests, and clearly call out the compatibility impact.
+Contract changes require coordinated review because all packages may depend on them. When a task appears to require a contract change, first determine whether the behavior can be implemented behind the existing interface. If not, keep the change small, update both contract documentation and affected tests, and clearly call out the compatibility impact.
 
 ## Package Notes
 
@@ -181,7 +181,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - Release builds force the API source; demo builds force fixtures and write `client/dist-demo` separately from live `client/dist`. Demo ratings are session-only and must never contact `/api` or claim persisted schedules. Asset URLs must respect Vite's base for Pages subpaths.
 - `client/src/sample.ts` holds the sample deck and its excerpts, `client/src/topics.ts` holds per-topic identity, and `client/src/excerpts.ts` is the registry the deck source populates so the live build never imports sample content. `test/sample-deck.test.ts` asserts every card cites a file that exists and quotes it verbatim, because a deck that invents attribution discredits the product's central claim.
 - Live sessions are capped at 12 acknowledged reviews (`SESSION_LIMIT`); immediately due incorrect-card repeats count toward the cap. Demo and fixture/URL practice use the same mixed choice/recall presentation with session-only ratings, capped at 12 cards: selected topics take turns filling a session, the starting topic rotates when topics outnumber slots, and per-topic cursors advance by cards actually dealt. Practice ratings and cursors reset on reload.
-- Source excerpts exist only for the sample deck. A live `Card` carries `path` and `sha` but no snippet, and nothing in the contract reports mastery, so the client shows card counts and attribution rather than inventing either. Absences of this kind are listed under "Deliberate Omissions" in the root README; do not scaffold a stub for one, because a function that can only return nothing is dead code and fixes another package's interface before its owner has chosen it.
+- Source excerpts exist only for the sample deck. A live `Card` carries `path` and `sha` but no snippet, and nothing in the contract reports mastery, so the client shows card counts and attribution rather than inventing either. Current limits are documented in `CONTRIBUTING.md`; do not scaffold placeholders for unimplemented capabilities or change another package's interface implicitly.
 - `npm run dev --workspace @flashlearn/frontend` serves the client on port 5173 and proxies `/api` to a `flashlearn start` server; override the target with `FLASHLEARN_API`.
 - `client/scripts/shot.mjs` captures optional UI screenshots; release browser checks use the Playwright development dependency.
 - `test:browser` uses the frontend's Playwright development dependency to test built Pages artifacts; browser system dependencies are installed by CI. After building the live client, run `npm run test:browser:live --workspace @flashlearn/frontend` for desktop/mobile live-flow checks against package-local injected services. Disk persistence and the real learning algorithm remain integration-test responsibilities.
@@ -196,7 +196,7 @@ Contract changes require coordinated review because all five workstreams may dep
 - Preserve source attribution and ISO 8601 timestamps.
 - Validate untrusted HTTP and filesystem input at the owning boundary.
 - Avoid adding dependencies when Node.js APIs are sufficient.
-- Do not add cross-package helpers. Duplicate a small package-specific helper rather than coupling independent workstreams.
+- Do not add cross-package helpers. Duplicate a small package-specific helper rather than coupling independent packages.
 - Do not edit generated `dist/` files or `package-lock.json` manually.
 - Do not commit `.flashlearn/`, secrets, tokens, or repository content ingested during local testing.
 
@@ -254,12 +254,7 @@ Treat this file as a living contract. Before completing any development task, co
 - npm scripts, runtime requirements, hooks, test commands, or CI check names;
 - important invariants that future contributors must preserve.
 
-The root README feature map is the authoritative high-level status view. It tracks completion of owner workstreams, not the presence of prototype code. Keep it as a numbered list ordered by package (`cli`, `extraction`, `storage`, `learning`, `frontend`). Prefix each item with the package color used in the contract map: 🔵 CLI, 🟢 extraction, 🟠 storage, 🟣 learning, and 🔴 frontend. Each item must put status in the first sub-bullet, followed by owner, features, dependencies, current capability, and next milestone. Update it whenever a change adds, removes, or materially alters a workstream deliverable. Use only these statuses:
-
-- `✅ Done`: the responsible owner has completed and merged the agreed package or shared-infrastructure deliverable;
-- `🚧 In Progress`: the owner is still implementing or validating the agreed deliverable.
-
-Do not mark a workstream done based on scaffolds, interfaces, mocks, starter implementations, open pull requests, or unmerged branches. A tested prototype may be listed as the current capability while its owner workstream remains in progress. Keep feature-map rows brief; implementation detail belongs in package READMEs.
+Keep the root README concise: product value, a copyable `npm i -g @flashlearnai/cli` install block, quickstart, a small architecture overview, and links to deeper documentation. Contributor setup and package responsibilities belong in `CONTRIBUTING.md`; implementation details belong in package READMEs and release operations in `docs/release-readiness.md`. Do not reintroduce individual assignments, hackathon completion trackers, or large API inventories into the product overview. Describe shipped capabilities accurately and label roadmap items as planned.
 
 Do not rewrite documentation when behavior is unchanged. Keep updates factual and derived from committed code rather than plans. After editing documentation, search for obsolete names and examples, run `git diff --check`, and verify every documented command affected by the change.
 

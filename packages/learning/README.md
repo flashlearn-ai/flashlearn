@@ -1,8 +1,8 @@
-# Learning Workstream
+# Learning
 
-**Owner:** Jenny
+Review scheduling, scoring, and due-card selection.
 
-`LearningService` implements deterministic review scheduling and due-card selection behind the locked learning contracts. The package has no storage, extraction, CLI, or frontend dependencies, so development and tests use plain in-memory cards and review states while the other workstreams are in progress.
+`LearningService` implements deterministic review scheduling and due-card selection behind the shared learning contracts. The package has no storage, extraction, CLI, or frontend dependencies; development and tests use plain in-memory cards and review states.
 
 | Method | Expected behavior |
 | --- | --- |

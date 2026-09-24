@@ -1,6 +1,6 @@
-# Frontend Workstream
+# Frontend
 
-**Owner:** Sara
+HTTP server and browser study experience.
 
 Live study offers the schedule or a topic choice as ways in, and deals every card as multiple choice or recall for variety, with a start-screen control to force one kind, with persisted review acknowledgements. Demo study uses the same presentation with session-only ratings. Multiple-choice distractors are drawn from cards sharing the same question form, falling back to the wider deck when too few match, and hide leading documented symbol names; original answers and attribution remain intact.
 
@@ -50,7 +50,7 @@ The live build uses the running project's API; `--mode demo` builds the bundled 
 
 The live Playwright suite starts the real frontend HTTP server against package-local injected services and loads `client/dist`. It covers hidden answers, server due selection, reload persistence, immediate incorrect-card repeats, future-card exclusion, failed selection/reveal/save retries, pending-save races, and the 12-review cap on desktop and mobile. Server-side fixture state survives browser reloads; disk persistence and the real learning algorithm remain CLI/storage/learning integration responsibilities. No cross-package implementation imports or shared browser scripts are used. `test:browser` remains the built Pages/demo check.
 
-For integration, rebuild the frontend before starting the compiled CLI. The primary integration workstream should run root `check`, `build`, release checks, and rebuild the Pages site before its browser suite; those artifacts are separate from `client/dist`.
+For integration, rebuild the frontend before starting the compiled CLI. Run root `check`, `build`, release checks, and rebuild the Pages site before its browser suite; those artifacts are separate from `client/dist`. See [CONTRIBUTING.md](../../CONTRIBUTING.md) for the contributor workflow.
 
 `client/scripts/shot.mjs` captures UI states. Browser checks use the Playwright development dependency. Install browser libraries when needed:
 

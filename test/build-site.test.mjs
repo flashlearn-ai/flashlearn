@@ -59,13 +59,16 @@ test("--demo publishes the sample demo and the links to it", async () => {
   }
 });
 
-/* The hero's primary call to action is the demo button when the demo ships and
- * the docs button when it does not. Neither build may leave the other's copy
- * behind, which would show a visitor two primary actions or none. */
-test("the hero keeps exactly one primary call to action in both modes", async () => {
+/* Installation is the primary action whether or not the sample demo ships. */
+test("the hero leads with the same copyable install command in both modes", async () => {
   for (const args of [[], ["--demo"]]) {
     const { hero } = await buildSite(args);
-    const actions = hero.match(/<div class="actions">[\s\S]*?<\/div>/)?.[0] ?? "";
-    assert.equal((actions.match(/class="button"/g) ?? []).length, 1, `${args.join(" ") || "default"} build must have one primary action`);
+    const section = hero.match(/<section class="hero">[\s\S]*?<\/section>/)?.[0] ?? "";
+    assert.match(section, /<code id="install-command">npm i -g @flashlearnai\/cli<\/code>/);
+    assert.equal((section.match(/class="button"/g) ?? []).length, 1);
+    assert.match(section, /aria-label="Copy install command"/);
+    assert.match(section, /flashlearn generate/);
+    assert.match(section, /flashlearn review/);
+    assert.match(hero, /src="\.\/install\.js"/);
   }
 });

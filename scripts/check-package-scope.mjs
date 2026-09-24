@@ -20,7 +20,9 @@ try {
   process.exit(2);
 }
 
-const changedFiles = output.split("\n").filter(Boolean);
+// Package overview documentation may be maintained together without coupling
+// implementations. Keep the exception narrow: nested docs/config/code still count.
+const changedFiles = output.split("\n").filter((path) => path && !/^packages\/[^/]+\/README\.md$/.test(path));
 const changedPackages = [...new Set(changedFiles.map((path) => path.split("/")[1]).filter(Boolean))].sort();
 
 if (changedPackages.length > 1) {

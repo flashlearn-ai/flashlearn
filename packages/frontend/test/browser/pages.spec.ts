@@ -26,6 +26,48 @@ test("hero and docs work at a repository subpath on desktop and mobile", async (
   }
 });
 
+test("hero install command copies on desktop and mobile with keyboard access", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(base);
+    const button = page.getByRole("button", { name: "Copy install command" });
+    await expect(button).toBeVisible();
+    await button.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("status")).toContainText("Copied!");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("npm i -g @flashlearnai/cli");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
+test("clipboard failure leaves a selectable command and honest feedback", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: async () => { throw new Error("Denied"); } } });
+  });
+  await page.goto(base);
+  await page.getByRole("button", { name: "Copy install command" }).click();
+  await expect(page.getByRole("status")).toHaveText("Select and copy the install command above.");
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("npm i -g @flashlearnai/cli");
+  await expect(page.getByRole("button", { name: "Copy install command" })).toBeEnabled();
+});
+
+test("install and quickstart stay usable without JavaScript", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+  try {
+    const page = await context.newPage();
+    await page.goto(base);
+    await expect(page.locator("#install-command")).toHaveText("npm i -g @flashlearnai/cli");
+    await expect(page.locator("#install-command")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy install command" })).toBeHidden();
+    await expect(page.locator(".quickstart")).toContainText("flashlearn generate");
+    await page.getByRole("link", { name: "Docs", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Installation", exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test("static demo completes a session without any API or external requests", async ({ page }) => {
   test.skip(!demoBuilt, "site was built without --demo, so there is no demo to check");
   await page.setViewportSize({ width: 390, height: 844 });
